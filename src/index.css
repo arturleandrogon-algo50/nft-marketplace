@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+
+/* Tema provisório (escuro e neutro). Cores, fontes e espaçamentos
+   serão ajustados para o Figma quando as telas forem implementadas. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #0f0f14;
+  color: #ececf3;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Efeito de carregamento dos skeletons */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.05) 25%,
+    rgb(255 255 255 / 0.12) 50%,
+    rgb(255 255 255 / 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Quem pede menos movimento no sistema não vê a animação. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+}

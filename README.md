@@ -47,8 +47,9 @@ npx playwright install chromium
 ```
 
 Depois, `npm run test:e2e` faz tudo sozinho: gera o build, sobe o `vite preview` na porta 4173
-com `VITE_USE_MOCKS=true` e roda os testes em `e2e/`. Se um preview já estiver aberto nessa
-porta, ele é reaproveitado (fora do CI). Cada teste começa com o navegador limpo, sem
+com `VITE_USE_MOCKS=true` e roda os testes em `e2e/`. A porta 4173 precisa estar livre: o
+servidor nunca é reaproveitado, porque um preview antigo serviria um build velho e os testes
+passariam contra código que não é o atual. Cada teste começa com o navegador limpo, sem
 `localStorage`, sessão ou contas criadas por outro teste.
 
 | Arquivo               | O que cobre |

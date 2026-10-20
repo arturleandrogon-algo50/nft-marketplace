@@ -1,16 +1,24 @@
 @import 'tailwindcss';
 
-/* Tema provisório (escuro e neutro). Cores, fontes e espaçamentos
-   serão ajustados para o Figma quando as telas forem implementadas. */
+/* Tema da marca Kurio. Os valores são aproximados (vieram de uma descrição do Figma,
+   não do arquivo): ajustar aqui muda o app inteiro. */
+@theme {
+  --color-page: #140d0a;
+  --color-panel: #241612;
+  --color-brand: #d28a4c;
+  /* Fonte monoespaçada do sistema: não baixa nada da internet (ajuda no Lighthouse). */
+  --font-sans: ui-monospace, 'Cascadia Mono', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+}
+
 :root {
   color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background: #0f0f14;
-  color: #ececf3;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-page);
+  color: #f1e6dd;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 

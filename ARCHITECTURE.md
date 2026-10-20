@@ -24,7 +24,7 @@ em vez de muita coisa pela metade.
 | Testes E2E (Playwright)                       | Feito para catálogo e autenticação (18 testes); compra e tempo real pendentes |
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
-| Fidelidade ao Figma                           | Pendente (tema atual é provisório) |
+| Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
 | Deploy público                                | Pendente     |
 
 ## Estrutura
@@ -140,7 +140,12 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 
 ## Limitações conhecidas
 
-- O tema (cores, tipografia, espaçamentos) é provisório. Será ajustado ao Figma.
+- O visual base da marca Kurio está aplicado (cores `#140d0a`/`#241612`/`#d28a4c`, fonte
+  monoespaçada do sistema, cabeçalho, botão laranja e card), mas as cores e medidas são
+  **aproximadas**, tiradas de capturas do Figma e não do arquivo. Faltam: busca e carrinho no
+  cabeçalho, selo "RARO", barra lateral de coleções, faixa de preço, hero e modais de
+  login/cadastro (hoje são páginas). Os itens do menu Mercado, Criadores e Aprenda aparecem como
+  "em breve", sem link, e o menu some abaixo de 768 px.
 - As imagens dos NFTs são gradientes em SVG gerados nos mocks, até os assets do Figma entrarem.
 - Token em `localStorage`: fica exposto a um eventual XSS. Num backend real, o certo seria um
   cookie `httpOnly`, que o MSW no navegador não simula bem.

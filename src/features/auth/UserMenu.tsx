@@ -20,12 +20,12 @@ export function UserMenu() {
       : currentHref
     return (
       <nav aria-label="Conta" className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild size="sm">
           <Link to="/entrar" search={{ redirect }}>
             Entrar
           </Link>
         </Button>
-        <Button asChild size="sm">
+        <Button asChild variant="outline" size="sm">
           <Link to="/cadastro" search={{ redirect }}>
             Criar conta
           </Link>

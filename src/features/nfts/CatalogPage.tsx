@@ -12,7 +12,7 @@ const route = getRouteApi('/')
 const PAGE_SIZE = 12
 
 const fieldClass =
-  'h-10 rounded-lg border border-white/20 bg-white/5 px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400'
+  'h-10 rounded-sm border border-white/20 bg-panel px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand'
 
 export function CatalogPage() {
   // Busca, filtro, ordenação e página vivem na URL. É ela a fonte da verdade.

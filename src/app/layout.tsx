@@ -18,9 +18,41 @@ export function RootLayout() {
 
       <header className="border-b border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link to="/" search={DEFAULT_SEARCH} className="shrink-0 rounded text-lg font-bold">
-            NFT Marketplace
-          </Link>
+          <div className="flex items-center gap-10">
+            <Link
+              to="/"
+              search={DEFAULT_SEARCH}
+              aria-label="Kurio, página inicial"
+              className="shrink-0 rounded text-base font-bold tracking-[0.3em] text-brand"
+            >
+              KURIO
+            </Link>
+
+            {/* No celular o menu some, para o cabeçalho caber em 390px. */}
+            <nav aria-label="Principal" className="hidden md:block">
+              <ul className="flex items-center gap-6 text-sm">
+                <li>
+                  <Link
+                    to="/"
+                    search={DEFAULT_SEARCH}
+                    className="rounded hover:text-brand"
+                    activeProps={{ className: 'text-brand' }}
+                    activeOptions={{ includeSearch: false }}
+                  >
+                    Início
+                  </Link>
+                </li>
+                {/* Ainda não têm página: aparecem como "em breve" e não levam a lugar nenhum. */}
+                {['Mercado', 'Criadores', 'Aprenda'].map((item) => (
+                  <li key={item}>
+                    <span aria-disabled="true" title="Em breve" className="cursor-default text-white/60">
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
           <UserMenu />
         </div>
       </header>

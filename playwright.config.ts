@@ -23,8 +23,10 @@ export default defineConfig({
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     env: { VITE_USE_MOCKS: 'true' },
-    // Localmente reaproveita um preview já aberto; no CI sempre sobe um novo.
-    reuseExistingServer: !isCI,
+    // Nunca reaproveita um servidor já aberto: ele poderia servir um build antigo
+    // e os testes passariam contra um código que não é o atual.
+    // Se a porta estiver ocupada, o teste falha e avisa (encerre o preview antes).
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

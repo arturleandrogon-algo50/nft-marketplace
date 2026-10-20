@@ -5,6 +5,13 @@ Solução do desafio frontend "Marketplace de NFTs" (React + TypeScript).
 > **Entrega parcial.** O que está pronto e o que falta está na tabela de status do
 > [ARCHITECTURE.md](./ARCHITECTURE.md), junto com as decisões técnicas.
 
+**Demonstração online:** https://nft-marketplace-green-ten.vercel.app
+
+Roda no Vercel com a API simulada (MSW) ligada, sem backend. Cada push na `main` publica uma
+nova versão. Veja [credenciais fictícias](#credenciais-fictícias) para entrar. As contas criadas
+e as sessões ficam só no navegador de quem usa (`localStorage`), então cada visitante enxerga
+apenas as suas.
+
 ## Setup
 
 Requer Node 22 ou superior.
@@ -22,6 +29,9 @@ Abra http://localhost:5173. A API é simulada pelo MSW na camada de rede, então
 | Variável         | Padrão | O que faz                                                |
 | ---------------- | ------ | -------------------------------------------------------- |
 | `VITE_USE_MOCKS` | `true` | Liga o MSW. O build de demonstração também usa `true`.   |
+
+No Vercel, `VITE_USE_MOCKS=true` está definida nas variáveis do projeto. O Vite lê o valor
+na hora do build, então mudá-la exige um novo deploy.
 
 ## Comandos
 

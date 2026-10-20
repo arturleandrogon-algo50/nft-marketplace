@@ -25,7 +25,7 @@ em vez de muita coisa pela metade.
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
-| Deploy público                                | Pendente     |
+| Deploy público                                | Feito: https://nft-marketplace-green-ten.vercel.app |
 
 ## Estrutura
 
@@ -121,6 +121,22 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   servidor") e, num teste de estresse (40 execuções, 4 workers), 2 páginas que não carregaram
   a tempo. A causa não foi confirmada; a suspeita é lentidão da máquina com vários navegadores
   em paralelo. No CI há 1 retry.
+
+## Deploy (Vercel)
+
+- URL: https://nft-marketplace-green-ten.vercel.app. O projeto está ligado ao repositório do
+  GitHub e cada push na `main` publica uma nova versão.
+- Build: `npm run build`, saída em `dist`. A variável `VITE_USE_MOCKS=true` está definida no
+  Vercel; é ela que liga o MSW no build publicado.
+- `vercel.json` manda toda rota para o `index.html`, para link direto e refresh funcionarem
+  em rotas como `/perfil`. Arquivos reais (`/assets/*`, `/mockServiceWorker.js`) são servidos
+  antes dessa regra.
+- Conferido na URL publicada (script de verificação temporário, que não está no repositório):
+  catálogo com 48 NFTs, `mockServiceWorker.js` servido como JavaScript, `/perfil` em acesso
+  direto vai para o login, login, sessão após refresh, logout e a página 404 do app, sem erro
+  de JavaScript. Os testes Playwright do repositório rodam só contra o `preview` local.
+- Consequência de ser uma SPA: uma rota inexistente mostra a página 404 do app, mas o servidor
+  responde HTTP 200 (e não 404).
 
 ## Política de cache (TanStack Query)
 

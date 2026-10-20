@@ -32,8 +32,31 @@ Abra http://localhost:5173. A API é simulada pelo MSW na camada de rede, então
 | `npm run preview`   | Serve o build gerado                      |
 | `npm run typecheck` | Só a verificação de tipos                 |
 | `npm run lint`      | Lint (oxlint)                             |
+| `npm run test:e2e`  | Testes E2E (Playwright)                   |
+| `npm run test:e2e:ui` | Testes E2E no modo interativo do Playwright |
+| `npm run test:e2e:report` | Abre o relatório HTML da última execução |
 
-Testes Playwright e auditoria Lighthouse ainda não estão incluídos (veja o status).
+A auditoria Lighthouse ainda não está incluída (veja o status).
+
+## Testes E2E
+
+Na primeira vez, instale o navegador usado pelos testes:
+
+```bash
+npx playwright install chromium
+```
+
+Depois, `npm run test:e2e` faz tudo sozinho: gera o build, sobe o `vite preview` na porta 4173
+com `VITE_USE_MOCKS=true` e roda os testes em `e2e/`. Se um preview já estiver aberto nessa
+porta, ele é reaproveitado (fora do CI). Cada teste começa com o navegador limpo, sem
+`localStorage`, sessão ou contas criadas por outro teste.
+
+| Arquivo               | O que cobre |
+| --------------------- | ----------- |
+| `e2e/catalog.spec.ts` | Listagem; busca na URL e refresh; filtro volta à página 1; filtros vindos da URL e botão voltar; busca sem resultado; cenário `empty`; cenário `server-error` com "Tentar novamente" |
+| `e2e/auth.spec.ts`    | Rota protegida → login → volta; validação e foco; senha errada; senha fora do storage; sessão após refresh; token inválido; logout; troca de usuário sem vazar dados; logout em outra aba; cadastro e e-mail repetido |
+
+Em caso de falha, o trace fica em `test-results/` (`npx playwright show-trace <arquivo>`).
 
 ## Cenários dos mocks
 

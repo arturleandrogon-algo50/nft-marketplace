@@ -12,16 +12,17 @@ em vez de muita coisa pela metade.
 | TanStack Query + Axios                        | Feito        |
 | shadcn/ui (Button, Skeleton, Input, Label)    | Feito, parcial |
 | MSW com cenários determinísticos              | Feito (listagem e autenticação) |
-| Catálogo: busca, filtro, ordenação, paginação na URL | Feito |
+| Catálogo: busca, filtro, ordenação, paginação na URL | Feito, com testes E2E |
 | Skeleton com shimmer, estados vazio e erro    | Feito (catálogo) |
 | Detalhe do NFT                                | Pendente     |
 | Favoritos (com atualização otimista)          | Pendente     |
 | Carrinho e cupom                              | Pendente     |
 | Pagamento, pedidos idempotentes e recibo      | Pendente     |
-| Cadastro, login, sessão, logout               | Feito (verificado no navegador; falta teste Playwright no repositório) |
+| Cadastro, login, sessão, logout               | Feito, com testes E2E |
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Pendente |
-| Testes E2E e regressão visual (Playwright)    | Pendente     |
+| Testes E2E (Playwright)                       | Feito para catálogo e autenticação (18 testes); compra e tempo real pendentes |
+| Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Pendente (tema atual é provisório) |
 | Deploy público                                | Pendente     |
@@ -99,6 +100,28 @@ Socket.IO existir, as subscriptions também serão encerradas aqui.
 **Banco do mock.** Usuários cadastrados ficam em `mock:users` e sessões em `mock:sessions`.
 O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê essas chaves.
 
+## Testes E2E (Playwright)
+
+- Ficam em `e2e/`, fora do `src/`. O app não importa nada dos testes.
+- `playwright.config.ts` usa `webServer` para gerar o build e subir o `vite preview` (porta
+  4173) com `VITE_USE_MOCKS=true`. Os testes rodam contra o build de produção com o MSW,
+  o mesmo que vai para o deploy.
+- **Isolamento:** o Playwright cria um contexto de navegador novo para cada teste, então
+  `localStorage` (token, `mock:users`, `mock:sessions`, `mock:scenario`) e o service worker
+  começam vazios. Por isso os testes podem rodar em paralelo e em qualquer ordem.
+- **Cenários:** `setMockScenario` (`e2e/helpers.ts`) grava `mock:scenario` com
+  `page.addInitScript`, antes de o app carregar.
+- Seletores por papel e nome acessível (`getByRole`, `getByLabel`), como um usuário (ou
+  leitor de tela) encontraria os elementos. Isso também ajuda a pegar regressões de acessibilidade.
+- Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
+- `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
+  antes de aparecer na tela.
+- Estabilidade: a suíte passou 54 de 54 vezes com `--repeat-each=3`. Numa rodada anterior
+  sob mais carga, houve uma falha isolada na primeira carga do catálogo ("Sem conexão com o
+  servidor") e, num teste de estresse (40 execuções, 4 workers), 2 páginas que não carregaram
+  a tempo. A causa não foi confirmada; a suspeita é lentidão da máquina com vários navegadores
+  em paralelo. No CI há 1 retry.
+
 ## Política de cache (TanStack Query)
 
 - `staleTime` de 30 s: voltar a uma tela recente não refaz a chamada.
@@ -123,4 +146,5 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   cookie `httpOnly`, que o MSW no navegador não simula bem.
 - Os "usuários" e sessões do mock vivem no `localStorage` do próprio navegador. Outro
   navegador ou dispositivo não enxerga as mesmas contas (exceto as de teste).
-- Sem testes automatizados no repositório por enquanto.
+- Testes E2E cobrem só o Chromium desktop. Fluxo de compra, tempo real e regressão visual
+  ainda não têm testes.

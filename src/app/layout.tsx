@@ -1,7 +1,11 @@
 import { Link, Outlet } from '@tanstack/react-router'
+import { useSessionSync } from '@/features/auth/queries'
+import { UserMenu } from '@/features/auth/UserMenu'
 import { DEFAULT_SEARCH } from '@/features/nfts/search'
 
 export function RootLayout() {
+  useSessionSync()
+
   return (
     <div className="min-h-screen">
       {/* Primeiro item do Tab: quem usa teclado pula direto para o conteúdo. */}
@@ -13,10 +17,11 @@ export function RootLayout() {
       </a>
 
       <header className="border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center px-4 py-4 sm:px-6">
-          <Link to="/" search={DEFAULT_SEARCH} className="rounded text-lg font-bold">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Link to="/" search={DEFAULT_SEARCH} className="shrink-0 rounded text-lg font-bold">
             NFT Marketplace
           </Link>
+          <UserMenu />
         </div>
       </header>
 

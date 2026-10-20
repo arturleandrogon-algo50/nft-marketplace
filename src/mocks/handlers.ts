@@ -3,6 +3,7 @@ import type { ApiError } from '@/lib/api'
 import { compareEth } from '@/lib/eth'
 import { SORT_OPTIONS } from '@/features/nfts/search'
 import type { Nft, NftSortKey, Paginated } from '@/features/nfts/types'
+import { authHandlers } from './auth-handlers'
 import { allNfts } from './fixtures/nfts'
 import { getScenario } from './scenario'
 
@@ -31,6 +32,8 @@ function sortNfts(list: Nft[], sort: NftSortKey) {
 type NftsResponse = Paginated<Nft> | ApiError
 
 export const handlers = [
+  ...authHandlers,
+
   http.get<never, never, NftsResponse>('/api/nfts', async ({ request }) => {
     const scenario = getScenario()
     requestCount += 1

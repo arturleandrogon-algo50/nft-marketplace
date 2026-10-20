@@ -47,8 +47,8 @@ localStorage.setItem('mock:scenario', 'slow')   // depois, recarregue a página
 | -------------- | ----------------------------------------------------------------------- |
 | `default`      | Catálogo com 48 NFTs, resposta em ~200 ms                               |
 | `empty`        | Catálogo sem nenhum item                                                |
-| `slow`         | Latência variável (0,8 s, 1,5 s, 2,2 s em rodízio), útil para os skeletons |
-| `server-error` | Toda listagem responde HTTP 500                                         |
+| `slow`         | Latência variável (0,8 s, 1,5 s, 2,2 s em rodízio), útil para os skeletons; login e cadastro levam 1,5 s |
+| `server-error` | Toda listagem responde HTTP 500 (login e cadastro continuam funcionando) |
 
 Para voltar ao padrão: `localStorage.setItem('mock:scenario', 'default')`.
 
@@ -56,4 +56,15 @@ Os dados são determinísticos (sem `Math.random`): o catálogo é o mesmo a cad
 
 ## Credenciais fictícias
 
-Ainda não há login. Quando existir, as credenciais de teste ficarão listadas aqui.
+Contas de teste (dados fictícios; o mock guarda só o hash das senhas):
+
+| Nome       | E-mail                 | Senha      |
+| ---------- | ---------------------- | ---------- |
+| Ana Souza  | `ana@nftmarket.test`   | `Senha123` |
+| Bruno Lima | `bruno@nftmarket.test` | `Senha123` |
+
+Também é possível criar uma conta em `/cadastro` (senha com 8+ caracteres, letras e números).
+Contas criadas ficam salvas no `localStorage` do navegador (chave `mock:users`). Para apagar
+contas e sessões do mock: `localStorage.removeItem('mock:users'); localStorage.removeItem('mock:sessions')`.
+
+Rotas: `/entrar`, `/cadastro` e `/perfil` (exige login).

@@ -17,7 +17,7 @@ function authDelay() {
   return delay(getScenario() === 'slow' ? 1500 : 300)
 }
 
-function apiError(status: number, code: string, message: string) {
+export function apiError(status: number, code: string, message: string) {
   return HttpResponse.json<ApiError>({ code, message }, { status })
 }
 
@@ -25,6 +25,12 @@ function apiError(status: number, code: string, message: string) {
 function readToken(request: Request) {
   const header = request.headers.get('Authorization') ?? ''
   return header.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
+}
+
+// Quem está fazendo a requisição? undefined = sem token, ou token inválido ou vencido.
+export function getRequestUser(request: Request) {
+  const token = readToken(request)
+  return token ? getSessionUser(token) : undefined
 }
 
 export const authHandlers = [

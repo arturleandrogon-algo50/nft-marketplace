@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { FavoriteButton } from '@/features/favorites/FavoriteButton'
 import type { Nft } from './types'
 
 export function NftCard({ nft }: { nft: Nft }) {
@@ -8,6 +9,9 @@ export function NftCard({ nft }: { nft: Nft }) {
     // O link do nome cobre o card inteiro (after:absolute), então o card todo é clicável
     // com um único link para o teclado e o leitor de tela. O contorno de foco vai no card.
     <article className="relative overflow-hidden rounded-md border border-brand/20 bg-panel has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand">
+      {/* O coração fica por cima do link que cobre o card (z-10 dentro do botão). */}
+      <FavoriteButton nftId={nft.id} nftName={nft.name} className="absolute right-5 top-5" />
+
       {/* Moldura em volta da arte, como no Figma. */}
       <div className="p-3">
         <img

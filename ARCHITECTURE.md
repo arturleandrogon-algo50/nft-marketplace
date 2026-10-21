@@ -15,13 +15,13 @@ em vez de muita coisa pela metade.
 | Catálogo: busca, filtro, ordenação, paginação na URL | Feito, com testes E2E |
 | Skeleton com shimmer, estados vazio e erro    | Feito (catálogo e detalhe) |
 | Detalhe do NFT (`/nfts/$id`)                  | Feito, com testes E2E; o botão de compra depende do carrinho (pendente) |
-| Favoritos (com atualização otimista)          | Pendente     |
+| Favoritos (com atualização otimista)          | Feito (coração no catálogo e no detalhe), com testes E2E; falta uma página que liste os favoritos |
 | Carrinho e cupom                              | Pendente     |
 | Pagamento, pedidos idempotentes e recibo      | Pendente     |
 | Cadastro, login, sessão, logout               | Feito, com testes E2E |
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Pendente |
-| Testes E2E (Playwright)                       | Feito para catálogo, autenticação e detalhe do NFT (24 testes); compra e tempo real pendentes |
+| Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT e favoritos (29 testes); compra e tempo real pendentes |
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
@@ -35,6 +35,7 @@ src/
   components/ui componentes no padrão shadcn/ui
   features/
     auth/       cadastro, login, sessão, perfil e menu do usuário
+    favorites/  botão de coração, chamadas à API e a mutação otimista
     nfts/       tipos, chamadas à API, queries e telas do catálogo e do detalhe
   lib/          cliente Axios, token da sessão, QueryClient, utilitários (ETH)
   mocks/        MSW: handlers, fixtures e cenários
@@ -66,6 +67,35 @@ atual. Na troca de página a lista anterior fica na tela (esmaecida) até a nova
 encontrado" (sem "Tentar novamente", porque repetir não resolve) e os demais erros com alerta e botão
 de nova tentativa. A quantidade fica entre 1 e as edições disponíveis, e o total é calculado em
 `BigInt` (`multiplyEth` em `lib/eth.ts`), nunca com `number`.
+
+## Favoritos
+
+Exigem login. O mock guarda os favoritos em `mock:favorites`, um mapa `id do usuário → ids dos
+NFTs`, e cada rota só lê e escreve a lista do dono do token.
+
+| Método e rota                  | Sucesso                    | Erros |
+| ------------------------------ | -------------------------- | ----- |
+| `GET /api/favorites`           | 200 `{ nftIds: string[] }` | 401 `unauthorized` |
+| `PUT /api/favorites/:nftId`    | 204 (idempotente)          | 401 `unauthorized`, 404 `nft_not_found`, 500 (cenário `favorites-error`) |
+| `DELETE /api/favorites/:nftId` | 204 (idempotente)          | 401 `unauthorized`, 500 (cenário `favorites-error`) |
+
+**Atualização otimista** (`useToggleFavorite` em `features/favorites/queries.ts`): `onMutate`
+cancela buscas em andamento, guarda a lista anterior e já grava a nova no cache, então o coração
+muda antes da resposta. `onError` devolve a lista guardada (rollback) e o botão mostra um aviso.
+`onSettled` invalida a query e busca a lista no servidor, que é quem manda.
+
+**Visitante.** Clicar no coração leva a `/entrar?redirect=<página atual>`, e depois do login volta
+para lá. O favorito não é aplicado sozinho. A lista só é buscada quando há usuário logado.
+
+**Sem vazar entre usuários.** A chave do cache é `['favorites', userId]`, e login e logout chamam
+`queryClient.clear()`. O teste E2E troca de conta sem recarregar a página (o caso em que o cache em
+memória poderia vazar) e confere que cada usuário vê só os próprios favoritos.
+
+**Comportamentos a saber.** Enquanto o app descobre quem é o usuário e carrega a lista, o coração
+fica esmaecido (`aria-disabled`) e clicar nesse instante não faz nada. Clique repetido durante a
+gravação também é ignorado, sem usar `disabled` (que tira o foco do teclado). Se vários NFTs forem
+gravados ao mesmo tempo, o rollback de um restaura a lista que ele guardou; a busca do `onSettled`
+corrige qualquer diferença logo depois.
 
 ## Sessão e autenticação
 
@@ -124,11 +154,11 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
 - `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
   antes de aparecer na tela.
-- **Estabilidade (medida, com 24 testes):** a última rodada dupla (`--repeat-each=2`, 48
-  execuções) teve 46 passando de primeira, 2 passando só na 2ª tentativa (marcadas como
-  "flaky" pelo Playwright) e nenhuma falha final. Antes disso, em rodadas isoladas, apareceram
-  travadas ocasionais na primeira carga da página, sempre em testes de `auth` ou na 1ª
-  carga do catálogo. Em um dos casos, o snapshot da página mostrava o formulário de login
+- **Estabilidade (medida, com 29 testes):** a última rodada dupla (`--repeat-each=2`, 58
+  execuções) teve 58 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 29 de
+  29. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
+  como "flaky" pelo Playwright). Em rodadas isoladas ainda mais antigas apareceram travadas
+  ocasionais na primeira carga da página, em testes de `auth` ou na 1ª carga do catálogo. Em um dos casos, o snapshot da página mostrava o formulário de login
   completo e o Playwright mesmo assim não conseguiu preencher o campo em 30 s, o que aponta
   para lentidão do ambiente de teste, não para erro do app. Em 160 cargas isoladas da página
   (4 em paralelo, fora do Playwright Test) o app montou todas as vezes. **A causa não foi
@@ -137,6 +167,11 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Um teste meu (filtro volta à página 1) só passava por acaso, pegando a lista antiga ainda
   na tela (`keepPreviousData`). Foi corrigido para verificar o total filtrado e a ausência da
   paginação, que são estáveis.
+- Nos testes de favoritos, o clique no coração só é seguido de um `reload` ou navegação depois
+  que a resposta do `PUT`/`DELETE` chega (`clickHeartAndWaitSave`). O handler do MSW roda dentro
+  da página: recarregar no meio cancela a gravação e o favorito se perde. Isso fez dois testes
+  falharem numa rodada sob carga, até a espera ser adicionada. O mesmo vale para o app: quem
+  recarrega a página dentro de ~200 ms depois de favoritar pode perder o favorito.
 
 ## Deploy (Vercel)
 
@@ -159,13 +194,13 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - `staleTime` de 30 s: voltar a uma tela recente não refaz a chamada.
 - `refetchOnWindowFocus` desligado.
 - Retry: erros 4xx não tentam de novo; falhas 5xx ou de rede tentam até 2 vezes.
-- Chaves de cache em `features/nfts/queries.ts` (`nftKeys`) e `features/auth/queries.ts` (`authKeys`).
+- Chaves de cache em `features/nfts/queries.ts` (`nftKeys`), `features/auth/queries.ts` (`authKeys`) e `features/favorites/queries.ts` (`favoriteKeys`, que inclui o id do usuário).
 - Login, cadastro e logout limpam todo o cache (`queryClient.clear()`).
 
 ## Mocks (MSW)
 
 - Ativados por `VITE_USE_MOCKS=true`, inclusive no build de demonstração.
-- Cenário ativo no `localStorage` (`mock:scenario`): `default`, `empty`, `slow`, `server-error`.
+- Cenário ativo no `localStorage` (`mock:scenario`): `default`, `empty`, `slow`, `server-error`, `favorites-error`.
 - No cenário `slow`, a latência é um rodízio previsível (não aleatório), o que permite
   reproduzir respostas fora de ordem.
 - Fixtures determinísticas em `mocks/fixtures/nfts.ts` (48 NFTs, alguns esgotados).

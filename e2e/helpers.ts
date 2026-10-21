@@ -5,7 +5,10 @@ export const ANA = { name: 'Ana Souza', email: 'ana@nftmarket.test', password: '
 export const BRUNO = { name: 'Bruno Lima', email: 'bruno@nftmarket.test', password: 'Senha123' }
 
 // Grava o cenário do mock antes do app carregar (vale para toda navegação da página).
-export async function setMockScenario(page: Page, scenario: 'empty' | 'slow' | 'server-error') {
+export async function setMockScenario(
+  page: Page,
+  scenario: 'empty' | 'slow' | 'server-error' | 'favorites-error',
+) {
   await page.addInitScript((value) => localStorage.setItem('mock:scenario', value), scenario)
 }
 

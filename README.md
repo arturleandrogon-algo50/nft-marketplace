@@ -66,6 +66,7 @@ passariam contra código que não é o atual. Cada teste começa com o navegador
 | --------------------- | ----------- |
 | `e2e/catalog.spec.ts` | Listagem; busca na URL e refresh; filtro volta à página 1; filtros vindos da URL e botão voltar; busca sem resultado; cenário `empty`; cenário `server-error` com "Tentar novamente" |
 | `e2e/nft-detail.spec.ts` | Acesso direto e refresh; abrir pelo card e voltar; NFT inexistente (404); edição esgotada; limite de quantidade e total exato em ETH; erro do servidor com "Tentar novamente" |
+| `e2e/favorites.spec.ts` | Favoritar e desfavoritar; sobrevive ao refresh; catálogo e detalhe mostram o mesmo estado; visitante vai ao login e volta à mesma página; dois usuários trocando de conta sem recarregar a página não veem os favoritos um do outro; rollback com o cenário `favorites-error` |
 | `e2e/auth.spec.ts`    | Rota protegida → login → volta; validação e foco; senha errada; senha fora do storage; sessão após refresh; token inválido; logout; troca de usuário sem vazar dados; logout em outra aba; cadastro e e-mail repetido |
 
 Em caso de falha, o trace fica em `test-results/` (`npx playwright show-trace <arquivo>`).
@@ -84,6 +85,7 @@ localStorage.setItem('mock:scenario', 'slow')   // depois, recarregue a página
 | `empty`        | Catálogo sem nenhum item                                                |
 | `slow`         | Latência variável (0,8 s, 1,5 s, 2,2 s em rodízio), útil para os skeletons; login e cadastro levam 1,5 s |
 | `server-error` | Toda listagem responde HTTP 500 (login e cadastro continuam funcionando) |
+| `favorites-error` | Favoritar e desfavoritar respondem HTTP 500 depois de 0,5 s (a lista de favoritos carrega normalmente), para ver o rollback do coração |
 
 Para voltar ao padrão: `localStorage.setItem('mock:scenario', 'default')`.
 

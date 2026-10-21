@@ -1,9 +1,9 @@
 // Cenário ativo dos mocks. Fica no localStorage para sobreviver ao refresh
 // e poder ser trocado sem rebuild: localStorage.setItem('mock:scenario', 'slow')
-export type Scenario = 'default' | 'empty' | 'slow' | 'server-error'
+export type Scenario = 'default' | 'empty' | 'slow' | 'server-error' | 'favorites-error'
 
 const STORAGE_KEY = 'mock:scenario'
-const VALID: Scenario[] = ['default', 'empty', 'slow', 'server-error']
+const VALID: Scenario[] = ['default', 'empty', 'slow', 'server-error', 'favorites-error']
 
 export function getScenario(): Scenario {
   try {

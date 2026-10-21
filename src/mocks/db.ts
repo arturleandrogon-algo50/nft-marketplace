@@ -6,6 +6,7 @@ import { seedUsers } from './fixtures/users'
 // Só o MSW lê e escreve aqui; o app não conhece essas chaves.
 const USERS_KEY = 'mock:users'
 const SESSIONS_KEY = 'mock:sessions'
+const FAVORITES_KEY = 'mock:favorites'
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface StoredUser extends User {
@@ -97,4 +98,29 @@ export function deleteSession(token: string) {
   const sessions = read<Record<string, Session>>(SESSIONS_KEY, {})
   delete sessions[token]
   write(SESSIONS_KEY, sessions)
+}
+
+// --- Favoritos --------------------------------------------------------------
+
+// Um mapa "id do usuário → ids dos NFTs". Cada usuário só lê e escreve a própria lista.
+function readFavorites() {
+  return read<Record<string, string[]>>(FAVORITES_KEY, {})
+}
+
+export function getFavorites(userId: string) {
+  return readFavorites()[userId] ?? []
+}
+
+// Favoritar duas vezes dá no mesmo (idempotente): não duplica o id.
+export function addFavorite(userId: string, nftId: string) {
+  const all = readFavorites()
+  const current = all[userId] ?? []
+  if (!current.includes(nftId)) all[userId] = [...current, nftId]
+  write(FAVORITES_KEY, all)
+}
+
+export function removeFavorite(userId: string, nftId: string) {
+  const all = readFavorites()
+  all[userId] = (all[userId] ?? []).filter((id) => id !== nftId)
+  write(FAVORITES_KEY, all)
 }

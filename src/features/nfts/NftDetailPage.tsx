@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios'
 import { ChevronLeft, Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { FavoriteButton } from '@/features/favorites/FavoriteButton'
 import { getErrorMessage } from '@/lib/api'
 import { multiplyEth } from '@/lib/eth'
 import { nftDetailOptions } from './queries'
@@ -106,7 +107,10 @@ export function NftDetailPage() {
 
         <div>
           <p className="text-sm text-white/60">{nft.collection}</p>
-          <h1 className="mt-1 text-3xl font-bold">{nft.name}</h1>
+          <div className="mt-1 flex items-start justify-between gap-4">
+            <h1 className="text-3xl font-bold">{nft.name}</h1>
+            <FavoriteButton nftId={nft.id} nftName={nft.name} className="shrink-0" />
+          </div>
           <p className="mt-2 text-sm text-white/70">Criado por {nft.creator}</p>
 
           <p className="mt-6 text-3xl font-bold text-brand">{nft.priceEth} ETH</p>

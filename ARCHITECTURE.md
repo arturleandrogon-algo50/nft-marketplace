@@ -23,7 +23,7 @@ em vez de muita coisa pela metade.
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Feito (`socket.io-client` + `@mswjs/socket.io-binding`; versão, duplicados, reconexão), com testes E2E |
 | Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho, checkout e tempo real (55 testes) |
 | Regressão visual (Playwright)                 | Pendente     |
-| Auditoria Lighthouse                          | Pendente     |
+| Auditoria Lighthouse                          | Medida no build local (3 medições, mediana): tudo na meta, exceto Performance no mobile (89, meta 90); ainda não medida na URL publicada |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
 | Deploy público                                | Feito: https://nft-marketplace-green-ten.vercel.app |
 
@@ -373,17 +373,33 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
 - `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
   antes de aparecer na tela.
-- **Estabilidade (medida, com 55 testes):** a última rodada dupla (`--repeat-each=2`, 110
-  execuções) teve 110 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 55 de
-  55. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
-  como "flaky" pelo Playwright). Em rodadas isoladas ainda mais antigas apareceram travadas
-  ocasionais na primeira carga da página, em testes de `auth` ou na 1ª carga do catálogo. Em um
-  dos casos, o snapshot da página mostrava o formulário de login
-  completo e o Playwright mesmo assim não conseguiu preencher o campo em 30 s, o que aponta
-  para lentidão do ambiente de teste, não para erro do app. Em 160 cargas isoladas da página
-  (4 em paralelo, fora do Playwright Test) o app montou todas as vezes. **A causa não foi
-  confirmada.** Por isso há `retries: 1` (inclusive local): a instabilidade continua visível
-  como "flaky" em vez de escondida.
+- **Estabilidade (medida, com 55 testes) — há uma instabilidade em aberto.**
+  - *Antes* das otimizações de performance, cinco rodadas completas seguidas passaram de primeira (a
+    última com `--repeat-each=2`: 110 de 110, sem nenhum "flaky").
+  - *Depois* delas, a rodada completa dupla (110 execuções) teve 108 passando de primeira, **2 passando só
+    na 2ª tentativa** (marcadas como "flaky" pelo Playwright) e nenhuma falha final. Os dois foram
+    `sessão sobrevive ao refresh` (`page.goto('/perfil')` estourou 30 s) e `token inválido vira visitante`
+    (a página ficou em `/perfil` em vez de ir para o login): os mesmos dois testes, que abrem `/perfil` direto
+    e já tinham aparecido como instáveis antes.
+  - Para investigar: `auth.spec.ts` ×8 sem retentativa deu 86 de 88 (as 2 falhas foram esses mesmos dois
+    testes) e, numa segunda vez, 88 de 88; esses dois testes sozinhos, 40 vezes cada, sem retentativa: 80
+    de 80; e 240 cargas de `/perfil` com token inválido, 4 em paralelo, fora do Playwright Test: 0 falhas.
+    Somando tudo desde as otimizações, são 4 falhas em cerca de 370 execuções dentro do Playwright Test, todas
+    nesses dois testes.
+  - **Não consegui reproduzir sob demanda, e a causa não foi confirmada.** O que cada sintoma sugere (hipótese,
+    não confirmado): na do `token inválido`, a chamada `GET /api/auth/me` não teria passado pelo MSW e o app
+    teria tratado a resposta do servidor como se fosse um usuário. **Não dá para descartar que as
+    otimizações (pré-carregamento, páginas sob demanda, MSW carregado em paralelo com o app) tenham aumentado
+    a chance de uma corrida rara que já existia.** Fica como pendência.
+  - Antes das otimizações já tinham aparecido instabilidades parecidas (travadas ocasionais na primeira
+    carga da página, em testes de `auth` ou na 1ª carga do catálogo; num caso, o snapshot da página mostrava o
+    formulário de login completo e o Playwright mesmo assim não conseguiu preencher o campo em 30 s, o que
+    apontava para lentidão do ambiente). Em 160 cargas isoladas da página (4 em paralelo, fora do Playwright
+    Test) o app montou todas as vezes.
+  - Por isso há `retries: 1` (inclusive local): a instabilidade continua visível como "flaky" em vez de
+    escondida, e o resultado final da suíte continua verde quando só a 2ª tentativa passa.
+  - Cuidado ao filtrar testes no Windows: `-g "a|b"` quebra, porque o `|` é interpretado pelo `cmd.exe`
+    (o comando termina com código 127 e nenhum teste roda). Use `arquivo.spec.ts:LINHA` para escolher testes.
 - Um teste meu (filtro volta à página 1) só passava por acaso, pegando a lista antiga ainda
   na tela (`keepPreviousData`). Foi corrigido para verificar o total filtrado e a ausência da
   paginação, que são estáveis.
@@ -403,6 +419,76 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   mas a trava do cliente não funcionava), corrigido com o `useRef`. O outro era do teste: clicar em "Sair" e
   abrir `/entrar` sem esperar o logout terminar (a sessão ainda existe e o app redireciona), o mesmo erro que
   já tinha acontecido antes no teste do carrinho; hoje o teste espera o link "Entrar" aparecer.
+
+## Performance e Lighthouse
+
+**Como foi medido.** `npm run lighthouse` (`scripts/lighthouse.mjs`, Lighthouse 13.5.0 em um Chrome instalado):
+página inicial (`/`) e detalhe (`/nfts/nft-048`), em mobile (padrão do Lighthouse: celular com 4G lenta e
+CPU 4× mais lenta, simulados) e desktop (perfil "desktop" do Lighthouse), 3 medições de cada, mediana. O
+Lighthouse limpa o armazenamento a cada medição, então o service worker do MSW é registrado do zero todas as
+vezes. **Medido no `vite preview` local (porta 4174), neste computador, e não na URL publicada.**
+
+**Resultado** (mediana de 3; entre parênteses, cada medição):
+
+| Modo    | Página  | Performance          | Acess. | B. práticas | SEO | LCP    | CLS   | TBT   |
+| ------- | ------- | -------------------- | ------ | ----------- | --- | ------ | ----- | ----- |
+| Mobile  | Início  | **89** (87/89/89)    | 100    | 100         | 100 | 3,12 s | 0     | 89 ms |
+| Mobile  | Detalhe | **89** (90/89/87)    | 100    | 100         | 100 | 3,12 s | 0,002 | 61 ms |
+| Desktop | Início  | 99 (99/99/99)        | 100    | 100         | 100 | 0,68 s | 0     | 0 ms  |
+| Desktop | Detalhe | 99 (100/84/99)       | 100    | 100         | 100 | 0,74 s | 0     | 0 ms  |
+
+Metas do desafio: Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90. **Só a Performance no
+celular ficou abaixo (89 nas duas páginas; só uma das 3 medições do detalhe chegou a 90, e nenhuma do início).**
+O 84 do desktop (detalhe) foi uma medição isolada com TBT de 341 ms, feita quando o computador estava mais lento
+(índice de benchmark do Lighthouse em 700, contra 1250 e 806 nas outras duas medições); as outras duas deram
+100 e 99.
+
+**Por que o celular fica em 89.** O LCP do celular é ~3,1 s e o FCP ~2,8 s. O elemento do LCP é a imagem do
+primeiro card na página inicial (um data URI, sem download) e o título (`h1`) no detalhe. Nos dois casos o
+"atraso para renderizar" medido sem throttling é de 1131 ms (início) e 812 ms (detalhe), contra menos de 30 ms de
+resposta do servidor: o tempo é de JavaScript, e não de rede ou de imagem. Esse JavaScript é o app (React,
+rotas, TanStack Query, Axios, ~78 KB comprimidos mais ~60 KB do React) e, principalmente, o **MSW** (cerca de
+165 KB comprimidos), que existe porque o servidor desta entrega é simulado no navegador. O Lighthouse simula
+uma rede de ~1,6 Mbps com CPU 4× mais lenta, em que baixar cerca de 320 KB de JavaScript já leva mais de 1,5 s,
+e a página só desenha o catálogo depois de o MSW ligar e responder à primeira chamada. Num servidor de verdade,
+sem o MSW, esse peso não existiria. O TBT (61 a 89 ms), o CLS (0 a 0,002) e as notas de acessibilidade, boas
+práticas e SEO estão todos na meta.
+
+**O que foi feito (todas as mudanças foram medidas; os números abaixo são medianas de 3 medições do mobile):**
+- Acessibilidade e SEO: títulos dos cards de `h3` para `h2` (o Lighthouse reprovava a ordem dos títulos, nota
+  98 no início) e `public/robots.txt` válido. Sem ele, o endereço `/robots.txt` devolvia o `index.html` (por
+  causa do fallback de rotas do SPA) e o Lighthouse reportava "15 errors found" (SEO 92). Depois disso:
+  acessibilidade 100 e SEO 100 em tudo.
+- Carregar o app e o MSW **ao mesmo tempo** (`main.tsx` + `bootstrap.tsx`), em vez de um depois do outro, e
+  escrever no HTML um `modulepreload` para esses arquivos e para o que eles importam (plugin no
+  `vite.config.ts`), para tudo começar a baixar junto com o `main.js`.
+- Páginas que não aparecem na primeira visita (login, cadastro, perfil, carrinho, checkout e pedidos) carregadas
+  sob demanda (`lazyRouteComponent`). O catálogo e o detalhe ficam no pacote principal.
+- Imagens dos 4 primeiros cards sem `loading="lazy"` e com `fetchPriority="high"`.
+- Logs do MSW desligados no build de produção (`quiet`): ele escrevia no console cada requisição com os objetos
+  inteiros.
+- Conexão do Socket.IO aberta só quando o navegador está ocioso (`requestIdleCallback`, no máximo 1,5 s).
+- Evolução da Performance no mobile (medianas de 3 medições, depois de cada etapa): início 74 e detalhe 78
+  (primeira versão das mudanças acima, sem o `modulepreload`, o `quiet` e a conexão ociosa), depois 87 e 88, 87 e
+  89, e por fim 89 e 89. As medições do começo (1 por combinação, antes de qualquer mudança) deram 79 e 85,
+  mas uma medição só oscila demais para valer (o mesmo código deu 85 e 67 em duas passadas).
+
+**O que foi tentado e NÃO funcionou.** Uma casca estática no `index.html` (a barra do topo com a marca KURIO, na
+mesma altura do cabeçalho real, para desenhar algo antes do JavaScript). O FCP caiu de ~2,7 s para ~1,05 s e o CLS
+continuou 0, mas a nota **caiu para 71 e 73**, porque o TBT subiu para 637 a 1322 ms: o Lighthouse só conta o
+bloqueio da thread principal depois do FCP, então com o FCP mais cedo todo o JavaScript pesado passou a contar.
+Foi desfeita. O usuário veria o topo da página antes, mas a métrica piora.
+
+**Variação entre medições.** Neste computador a mesma página oscila bastante entre duas medições: o detalhe no
+mobile deu 85 e 67 com o mesmo código, e o TBT do mobile apareceu entre 38 e 2316 ms ao longo do trabalho, com
+os maiores valores na primeira medição de uma sequência (partida a frio do Chrome) ou quando o computador estava
+mais lento. Por isso só a mediana de 3 conta como resultado, e cada medição fica registrada em
+`lighthouse-results/summary.json` (o arquivo não vai para o git; rode `npm run lighthouse` para gerá-lo).
+
+**O que ainda não foi feito.** A medição na URL publicada (`LIGHTHOUSE_URL=... npm run lighthouse`), que pode dar
+números melhores (compressão do servidor e rede real) ou piores. Também não foram otimizados: o CSS que bloqueia a
+renderização (~5 KB comprimidos, economia estimada de 150 ms) e o JavaScript não usado do MSW e do pacote
+principal (~120 KB, que o Lighthouse aponta mas não dá para remover sem trocar o servidor simulado).
 
 ## Deploy (Vercel)
 

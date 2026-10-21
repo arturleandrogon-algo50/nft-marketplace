@@ -49,8 +49,18 @@ export function useRealtime() {
     // O socket.io-client é carregado só agora, e não no topo do arquivo: ele guarda o WebSocket
     // que existe NA HORA em que é importado, e o MSW só troca o WebSocket quando liga (antes de
     // renderizar o app). Importado cedo demais, ele usaria o WebSocket de verdade, sem mock.
-    void import('socket.io-client').then(({ io }) => {
-      if (cancelled) return
+    function connect() {
+      void import('socket.io-client').then(({ io }) => {
+        if (cancelled) return
+        start(io)
+      })
+    }
+
+    // A conexão espera o navegador ficar ocioso (no máximo 1,5 s): abrir o socket logo no primeiro
+    // desenho competiria com ele, e o que a página mostra primeiro não depende do tempo real.
+    const idleHandle = window.requestIdleCallback(connect, { timeout: 1500 })
+
+    function start(io: typeof import('socket.io-client').io) {
 
       socket = io({
         path: REALTIME_PATH,
@@ -77,10 +87,11 @@ export function useRealtime() {
       socket.on(ORDER_UPDATED, (event: OrderUpdatedEvent) => {
         count(userId ? applyOrderEvent(queryClient, userId, event) : 'ignored')
       })
-    })
+    }
 
     return () => {
       cancelled = true
+      window.cancelIdleCallback(idleHandle)
       socket?.disconnect()
       forgetSeenEvents()
       // A próxima conexão (outro usuário, por exemplo) começa do zero.

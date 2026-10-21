@@ -2,7 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { FavoriteButton } from '@/features/favorites/FavoriteButton'
 import type { Nft } from './types'
 
-export function NftCard({ nft }: { nft: Nft }) {
+// priority: card que aparece logo na primeira tela. A imagem dele não é "preguiçosa": é a que
+// costuma ser o LCP, e carregá-la só quando rolar a página atrasaria o desenho mais importante.
+export function NftCard({ nft, priority = false }: { nft: Nft; priority?: boolean }) {
   const soldOut = nft.editionsAvailable === 0
 
   return (
@@ -19,13 +21,15 @@ export function NftCard({ nft }: { nft: Nft }) {
           alt={`${nft.name}, criado por ${nft.creator}`}
           width={400}
           height={400}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           className="aspect-square w-full rounded-sm object-cover"
         />
       </div>
       <div className="space-y-1 px-4 pb-4">
         <p className="text-xs text-white/60">{nft.collection}</p>
-        <h3 className="truncate font-semibold">
+        {/* h2 (e não h3): abaixo do h1 da página não pode pular um nível de título. */}
+        <h2 className="truncate font-semibold">
           <Link
             to="/nfts/$id"
             params={{ id: nft.id }}
@@ -33,7 +37,7 @@ export function NftCard({ nft }: { nft: Nft }) {
           >
             {nft.name}
           </Link>
-        </h3>
+        </h2>
         {/* flex-wrap: em tela estreita a disponibilidade desce para baixo do preço, em vez de ser cortada. */}
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-2 text-sm">
           <span className="whitespace-nowrap font-bold text-brand">{nft.priceEth} ETH</span>

@@ -45,8 +45,29 @@ na hora do build, então mudá-la exige um novo deploy.
 | `npm run test:e2e`  | Testes E2E (Playwright)                   |
 | `npm run test:e2e:ui` | Testes E2E no modo interativo do Playwright |
 | `npm run test:e2e:report` | Abre o relatório HTML da última execução |
+| `npm run lighthouse` | Mede com o Lighthouse (início e detalhe, mobile e desktop, 3 medições, mediana). Rode `npm run build` antes |
 
-A auditoria Lighthouse ainda não está incluída (veja o status).
+## Lighthouse
+
+`npm run build` e depois `npm run lighthouse`: o script sobe o `preview` sozinho (porta 4174), mede a página
+inicial e o detalhe de um NFT, no celular e no desktop, 3 vezes cada, e mostra a **mediana** de cada número.
+O resultado completo (inclusive as notas de cada medição) fica em `lighthouse-results/summary.json`. Requer o
+Google Chrome instalado (ou `CHROME_PATH`). Variáveis: `LIGHTHOUSE_URL` mede um endereço já publicado,
+`LIGHTHOUSE_RUNS` muda o número de medições e `LIGHTHOUSE_ONLY=mobile` (ou `desktop`) mede só um modo.
+
+Medido neste computador, no build local (`vite preview`, com os mocks ligados), mediana de 3 medições:
+
+| Modo    | Página  | Performance | Acessibilidade | Boas práticas | SEO | LCP     | CLS   | TBT   |
+| ------- | ------- | ----------- | -------------- | ------------- | --- | ------- | ----- | ----- |
+| Mobile  | Início  | **89**      | 100            | 100           | 100 | 3,12 s  | 0     | 89 ms |
+| Mobile  | Detalhe | **89**      | 100            | 100           | 100 | 3,12 s  | 0,002 | 61 ms |
+| Desktop | Início  | 99          | 100            | 100           | 100 | 0,68 s  | 0     | 0 ms  |
+| Desktop | Detalhe | 99          | 100            | 100           | 100 | 0,74 s  | 0     | 0 ms  |
+
+Tudo atinge a meta (Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90) **exceto a Performance
+no celular, que ficou em 89 nas duas páginas** (1 ponto abaixo, e o que pesa é o JavaScript do app e do MSW numa
+rede móvel lenta simulada). O motivo, o que foi feito e o que não funcionou
+estão no [ARCHITECTURE.md](./ARCHITECTURE.md). As medições foram feitas no servidor local, e não na URL publicada.
 
 ## Testes E2E
 

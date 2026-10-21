@@ -156,9 +156,10 @@ export function CatalogPage() {
               isPlaceholderData ? 'opacity-60' : ''
             }`}
           >
-            {data.items.map((nft) => (
+            {data.items.map((nft, index) => (
               <li key={nft.id}>
-                <NftCard nft={nft} />
+                {/* Os 4 primeiros aparecem na primeira tela: a imagem deles carrega sem esperar. */}
+                <NftCard nft={nft} priority={index < 4} />
               </li>
             ))}
           </ul>

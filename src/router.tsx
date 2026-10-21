@@ -2,23 +2,28 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   redirect,
   stripSearchParams,
 } from '@tanstack/react-router'
 import { NotFound, RootLayout } from '@/app/layout'
-import { LoginPage } from '@/features/auth/LoginPage'
-import { ProfilePage } from '@/features/auth/ProfilePage'
 import { meOptions } from '@/features/auth/queries'
 import { validateAuthSearch } from '@/features/auth/redirect'
-import { RegisterPage } from '@/features/auth/RegisterPage'
-import { CartPage } from '@/features/cart/CartPage'
 import { CatalogPage } from '@/features/nfts/CatalogPage'
 import { NftDetailPage } from '@/features/nfts/NftDetailPage'
 import { DEFAULT_SEARCH, validateCatalogSearch } from '@/features/nfts/search'
-import { CheckoutPage } from '@/features/orders/CheckoutPage'
-import { OrderPage } from '@/features/orders/OrderPage'
-import { OrdersPage } from '@/features/orders/OrdersPage'
 import { queryClient } from '@/lib/query-client'
+
+// Telas que quase ninguém abre na primeira visita (login, carrinho, checkout, pedidos...) são
+// baixadas só quando a pessoa vai até elas, e o pacote principal fica menor e carrega mais rápido.
+// O catálogo e o detalhe ficam no pacote principal: são o que a maioria vê primeiro.
+const LoginPage = lazyRouteComponent(() => import('@/features/auth/LoginPage'), 'LoginPage')
+const RegisterPage = lazyRouteComponent(() => import('@/features/auth/RegisterPage'), 'RegisterPage')
+const ProfilePage = lazyRouteComponent(() => import('@/features/auth/ProfilePage'), 'ProfilePage')
+const CartPage = lazyRouteComponent(() => import('@/features/cart/CartPage'), 'CartPage')
+const CheckoutPage = lazyRouteComponent(() => import('@/features/orders/CheckoutPage'), 'CheckoutPage')
+const OrdersPage = lazyRouteComponent(() => import('@/features/orders/OrdersPage'), 'OrdersPage')
+const OrderPage = lazyRouteComponent(() => import('@/features/orders/OrderPage'), 'OrderPage')
 
 const rootRoute = createRootRoute({
   component: RootLayout,

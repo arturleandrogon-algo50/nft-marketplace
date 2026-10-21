@@ -17,6 +17,9 @@ test-results
 playwright-report
 blob-report
 
+# Lighthouse
+lighthouse-results
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

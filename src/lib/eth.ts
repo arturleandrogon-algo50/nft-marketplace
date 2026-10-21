@@ -15,7 +15,7 @@ export function compareEth(a: string, b: string): number {
 }
 
 // Volta de wei para a string decimal, sem zeros sobrando no fim: 756000000000000000n → "0.756".
-function fromWei(wei: bigint): string {
+export function fromWei(wei: bigint): string {
   const digits = wei.toString().padStart(DECIMALS + 1, '0')
   const whole = digits.slice(0, -DECIMALS)
   const fraction = digits.slice(-DECIMALS).replace(/0+$/, '')

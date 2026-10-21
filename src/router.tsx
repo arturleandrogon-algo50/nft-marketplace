@@ -11,6 +11,7 @@ import { ProfilePage } from '@/features/auth/ProfilePage'
 import { meOptions } from '@/features/auth/queries'
 import { validateAuthSearch } from '@/features/auth/redirect'
 import { RegisterPage } from '@/features/auth/RegisterPage'
+import { CartPage } from '@/features/cart/CartPage'
 import { CatalogPage } from '@/features/nfts/CatalogPage'
 import { NftDetailPage } from '@/features/nfts/NftDetailPage'
 import { DEFAULT_SEARCH, validateCatalogSearch } from '@/features/nfts/search'
@@ -34,6 +35,13 @@ const nftDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/nfts/$id',
   component: NftDetailPage,
+})
+
+// O carrinho é público: visitante também tem um (guardado no navegador).
+const cartRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/carrinho',
+  component: CartPage,
 })
 
 // Quem já está logado não precisa ver login nem cadastro.
@@ -78,6 +86,7 @@ const profileRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   catalogRoute,
   nftDetailRoute,
+  cartRoute,
   loginRoute,
   registerRoute,
   authenticatedRoute.addChildren([profileRoute]),

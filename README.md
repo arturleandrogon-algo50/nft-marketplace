@@ -66,6 +66,7 @@ passariam contra código que não é o atual. Cada teste começa com o navegador
 | --------------------- | ----------- |
 | `e2e/catalog.spec.ts` | Listagem; busca na URL e refresh; filtro volta à página 1; filtros vindos da URL e botão voltar; busca sem resultado; cenário `empty`; cenário `server-error` com "Tentar novamente" |
 | `e2e/nft-detail.spec.ts` | Acesso direto e refresh; abrir pelo card e voltar; NFT inexistente (404); edição esgotada; limite de quantidade e total exato em ETH; erro do servidor com "Tentar novamente" |
+| `e2e/cart.spec.ts` | Adicionar do detalhe com a quantidade escolhida; itens iguais se somam; alterar e remover; limite de edições e NFT esgotado; cupom válido, expirado e inválido (valores exatos em ETH); carrinho e cupom depois do refresh; carrinho de visitante (persiste, sem cupom); mesclagem ao fazer login; dois usuários com carrinhos separados, sem recarregar a página; erro do servidor com "Tentar novamente" |
 | `e2e/favorites.spec.ts` | Favoritar e desfavoritar; sobrevive ao refresh; catálogo e detalhe mostram o mesmo estado; visitante vai ao login e volta à mesma página; dois usuários trocando de conta sem recarregar a página não veem os favoritos um do outro; rollback com o cenário `favorites-error` |
 | `e2e/auth.spec.ts`    | Rota protegida → login → volta; validação e foco; senha errada; senha fora do storage; sessão após refresh; token inválido; logout; troca de usuário sem vazar dados; logout em outra aba; cadastro e e-mail repetido |
 
@@ -84,7 +85,7 @@ localStorage.setItem('mock:scenario', 'slow')   // depois, recarregue a página
 | `default`      | Catálogo com 48 NFTs, resposta em ~200 ms                               |
 | `empty`        | Catálogo sem nenhum item                                                |
 | `slow`         | Latência variável (0,8 s, 1,5 s, 2,2 s em rodízio), útil para os skeletons; login e cadastro levam 1,5 s |
-| `server-error` | Toda listagem responde HTTP 500 (login e cadastro continuam funcionando) |
+| `server-error` | Listagem, detalhe do NFT, leitura do carrinho e cotação respondem HTTP 500 (login, cadastro e as alterações do carrinho continuam funcionando) |
 | `favorites-error` | Favoritar e desfavoritar respondem HTTP 500 depois de 0,5 s (a lista de favoritos carrega normalmente), para ver o rollback do coração |
 
 Para voltar ao padrão: `localStorage.setItem('mock:scenario', 'default')`.
@@ -105,3 +106,20 @@ Contas criadas ficam salvas no `localStorage` do navegador (chave `mock:users`).
 contas e sessões do mock: `localStorage.removeItem('mock:users'); localStorage.removeItem('mock:sessions')`.
 
 Rotas: `/entrar`, `/cadastro` e `/perfil` (exige login).
+
+## Carrinho e cupons de teste
+
+O carrinho fica em `/carrinho`, aberto também para visitantes: o de quem não está logado fica no
+`localStorage` do navegador (chave `cart:guest`), e ao fazer login é somado ao da conta (quantidades
+somadas, respeitando as edições disponíveis). O da conta fica no servidor simulado (`mock:carts`),
+um por usuário. Cupom só vale para quem está logado.
+
+| Cupom     | Resultado                                      |
+| --------- | ---------------------------------------------- |
+| `KURIO10` | Válido: 10% de desconto sobre o subtotal       |
+| `VELHO20` | Expirado: "Este cupom expirou."                |
+| qualquer outro | Inválido: "Cupom inválido. Confira o código e tente de novo." |
+
+Subtotal, desconto e total vêm do servidor simulado como string decimal em ETH, calculados com
+`BigInt` (nunca `number`). A compra em si (pagamento e recibo) ainda não existe: a página do
+carrinho avisa isso.

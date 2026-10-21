@@ -1,4 +1,5 @@
 import type { User } from '@/features/auth/types'
+import type { CartItemInput } from '@/features/cart/types'
 import { seedUsers } from './fixtures/users'
 
 // "Banco de dados" do servidor simulado. Fica no localStorage para os
@@ -7,6 +8,7 @@ import { seedUsers } from './fixtures/users'
 const USERS_KEY = 'mock:users'
 const SESSIONS_KEY = 'mock:sessions'
 const FAVORITES_KEY = 'mock:favorites'
+const CARTS_KEY = 'mock:carts'
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface StoredUser extends User {
@@ -123,4 +125,23 @@ export function removeFavorite(userId: string, nftId: string) {
   const all = readFavorites()
   all[userId] = (all[userId] ?? []).filter((id) => id !== nftId)
   write(FAVORITES_KEY, all)
+}
+
+// --- Carrinho ---------------------------------------------------------------
+
+// Um carrinho por usuário: os itens (NFT + quantidade) e o código do cupom aplicado.
+export interface StoredCart {
+  items: CartItemInput[]
+  couponCode: string | null
+}
+
+export function getCart(userId: string): StoredCart {
+  const all = read<Record<string, StoredCart>>(CARTS_KEY, {})
+  return all[userId] ?? { items: [], couponCode: null }
+}
+
+export function saveCart(userId: string, cart: StoredCart) {
+  const all = read<Record<string, StoredCart>>(CARTS_KEY, {})
+  all[userId] = cart
+  write(CARTS_KEY, all)
 }

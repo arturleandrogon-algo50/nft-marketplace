@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 // Botão no padrão do shadcn/ui. As cores vêm do tema (index.css).
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50 aria-disabled:opacity-50',
   {
     variants: {
       variant: {

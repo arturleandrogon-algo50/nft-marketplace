@@ -19,3 +19,14 @@ export const queryClient = new QueryClient({
     },
   },
 })
+
+// Troca ou fim de sessão: apaga os dados de todas as queries e as mutações (a senha digitada
+// fica nelas), para nada do usuário anterior aparecer para o próximo.
+// Não usamos queryClient.clear(): ele remove as queries do cache, mas os componentes que já
+// estão na tela (como o ícone do carrinho no cabeçalho) continuam ligados às queries removidas
+// e seguem mostrando os dados antigos até re-renderizar. O resetQueries mantém as mesmas
+// queries, zera os dados, cancela pedidos em andamento e avisa quem está na tela.
+export function resetCache() {
+  queryClient.getMutationCache().clear()
+  void queryClient.resetQueries()
+}

@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios'
 import { ChevronLeft, Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AddToCartButton } from '@/features/cart/AddToCartButton'
 import { FavoriteButton } from '@/features/favorites/FavoriteButton'
 import { getErrorMessage } from '@/lib/api'
 import { multiplyEth } from '@/lib/eth'
@@ -172,6 +173,14 @@ export function NftDetailPage() {
               Total: <span className="font-bold text-brand">{multiplyEth(nft.priceEth, quantity)} ETH</span>
             </p>
           )}
+
+          <div className="mt-6">
+            <AddToCartButton
+              nftId={nft.id}
+              quantity={quantity}
+              maxQuantity={nft.editionsAvailable}
+            />
+          </div>
         </div>
       </div>
     </div>

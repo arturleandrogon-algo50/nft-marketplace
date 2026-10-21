@@ -1,6 +1,7 @@
 import { Link, Outlet } from '@tanstack/react-router'
 import { useSessionSync } from '@/features/auth/queries'
 import { UserMenu } from '@/features/auth/UserMenu'
+import { CartLink } from '@/features/cart/CartLink'
 import { DEFAULT_SEARCH } from '@/features/nfts/search'
 
 export function RootLayout() {
@@ -53,7 +54,10 @@ export function RootLayout() {
               </ul>
             </nav>
           </div>
-          <UserMenu />
+          <div className="flex min-w-0 items-center gap-3">
+            <CartLink />
+            <UserMenu />
+          </div>
         </div>
       </header>
 

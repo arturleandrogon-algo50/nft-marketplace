@@ -22,7 +22,7 @@ em vez de muita coisa pela metade.
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Feito (`socket.io-client` + `@mswjs/socket.io-binding`; versão, duplicados, reconexão), com testes E2E |
 | Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho, checkout e tempo real (55 testes) |
-| Regressão visual (Playwright)                 | Pendente     |
+| Regressão visual (Playwright)                 | Feito (`e2e/visual.spec.ts`: 6 telas × 3 larguras = 18 imagens, geradas no Windows); suíte completa com 73 testes |
 | Auditoria Lighthouse                          | Medida (3 medições, mediana). **Site publicado: tudo na meta**, inclusive Performance no mobile (92 e 94). Build local: tudo na meta, exceto Performance no mobile (89, meta 90) |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
 | Deploy público                                | Feito: https://nft-marketplace-green-ten.vercel.app |
@@ -419,6 +419,29 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   mas a trava do cliente não funcionava), corrigido com o `useRef`. O outro era do teste: clicar em "Sair" e
   abrir `/entrar` sem esperar o logout terminar (a sessão ainda existe e o app redireciona), o mesmo erro que
   já tinha acontecido antes no teste do carrinho; hoje o teste espera o link "Entrar" aparecer.
+- **Regressão visual (`e2e/visual.spec.ts`).** 6 telas (catálogo, detalhe, login, carrinho com itens e cupom,
+  checkout e recibo) × 3 larguras (390, 768 e 1440 px) = 18 imagens de página inteira, comparadas com as de
+  referência em `e2e/visual.spec.ts-snapshots/` (~1,9 MB, geradas no Windows).
+  - *Como a foto sai igual a cada vez:* `reducedMotion` mais `animations: 'disabled'` (shimmer parado) e cursor
+    escondido; hora da página fixa (`page.clock.setFixedTime`, que NÃO congela os temporizadores: congelá-los
+    travaria o MSW, que usa `setTimeout` para simular a latência), fuso `America/Sao_Paulo` e idioma `pt-BR`, então
+    a data do recibo é sempre 21/10/2026, 12:00:00; com a hora parada, a entrega automática do pedido (que depende
+    de passar tempo) também não acontece e o status fica "Pago"; fontes e imagens (inclusive as `loading="lazy"` do
+    fim do catálogo, forçadas a carregar) esperadas e decodificadas antes de capturar; rodapé "Tempo real" coberto
+    por uma tarja.
+  - *Como cada tela é montada:* login e carrinho/pedido são preparados por `fetch` nas rotas do mock (passam
+    pelo MSW), e não clicando, por rapidez e estabilidade.
+  - *Em outra plataforma:* sem imagens de referência os testes se pulam sozinhos (verificado: sem a pasta, 18
+    pulados e código de saída 0, sem gravar nada), para o `npm run test:e2e` não falhar em Linux ou macOS.
+  - *Estabilidade medida:* duas rodadas seguidas da suíte visual, sem atualizar as imagens e sem retentativa:
+    18 de 18 e 18 de 18. Uma terceira rodada, depois do teste de sanidade abaixo, também deu 18 de 18. A suíte
+    completa (`npm run test:e2e`) deu 73 de 73.
+  - *Teste de sanidade (a suíte realmente detecta mudanças):* aumentei de propósito o espaçamento lateral do card
+    (`px-4` para `px-6`, depois desfeito). Falharam exatamente os 3 testes do catálogo (diferenças de 16.169 px em
+    390 e de 18.106 px em 1440), e os outros 15 passaram. Nessa mesma execução o catálogo em 768 px falhou por
+    outro motivo: 0 cards depois de 10 s, antes de tirar a foto. Uma mudança de espaçamento não causa isso, então
+    é a mesma instabilidade rara de primeira carga já descrita acima (aqui na página inicial); ela apareceu 1 vez
+    em cerca de 80 execuções visuais.
 
 ## Performance e Lighthouse
 
@@ -589,4 +612,8 @@ esperado (o navegador cancela as chamadas em andamento ao navegar). O segundo sc
   guarda histórico de eventos perdidos: depois de uma reconexão, o REST é a única fonte de reconciliação.
   O carrinho não é atualizado por eventos (as edições disponíveis dele só se renovam quando ele é buscado
   de novo). Os controles do mock (`/api/mock/...`) existem só por ser um servidor simulado.
-- Testes E2E cobrem só o Chromium desktop. Regressão visual ainda não tem testes.
+- Testes E2E cobrem só o Chromium. A regressão visual usa imagens de referência geradas no Windows
+  (`-chromium-win32.png`): em outra plataforma elas não existem e esses testes se pulam sozinhos até alguém
+  gerar as da própria plataforma (`npx playwright test e2e/visual.spec.ts --update-snapshots`). Cobre 6 telas (catálogo,
+  detalhe, login, carrinho, checkout, recibo) e não cobre estados de erro, vazio ou carregando, nem as páginas de
+  cadastro, perfil e lista de pedidos.

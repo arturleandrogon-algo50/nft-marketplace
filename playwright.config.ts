@@ -15,7 +15,12 @@ export default defineConfig({
   retries: 1,
   reporter: isCI ? 'github' : 'list',
   // Erros 5xx têm 2 retries no TanStack Query (~3 s até a tela de erro); 10 s dá folga.
-  expect: { timeout: 10_000 },
+  expect: {
+    timeout: 10_000,
+    // Regressão visual (e2e/visual.spec.ts): animações finitas terminam e as infinitas (o shimmer)
+    // voltam ao estado inicial, e o cursor piscando do campo de texto some da imagem.
+    toHaveScreenshot: { animations: 'disabled', caret: 'hide' },
+  },
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',

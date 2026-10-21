@@ -100,8 +100,36 @@ passariam contra código que não é o atual. Cada teste começa com o navegador
 | `e2e/cart.spec.ts` | Adicionar do detalhe com a quantidade escolhida; itens iguais se somam; alterar e remover; limite de edições e NFT esgotado; cupom válido, expirado e inválido (valores exatos em ETH); carrinho e cupom depois do refresh; carrinho de visitante (persiste, sem cupom); mesclagem ao fazer login; dois usuários com carrinhos separados, sem recarregar a página; erro do servidor com "Tentar novamente" |
 | `e2e/favorites.spec.ts` | Favoritar e desfavoritar; sobrevive ao refresh; catálogo e detalhe mostram o mesmo estado; visitante vai ao login e volta à mesma página; dois usuários trocando de conta sem recarregar a página não veem os favoritos um do outro; rollback com o cenário `favorites-error` |
 | `e2e/auth.spec.ts`    | Rota protegida → login → volta; validação e foco; senha errada; senha fora do storage; sessão após refresh; token inválido; logout; troca de usuário sem vazar dados; logout em outra aba; cadastro e e-mail repetido |
+| `e2e/visual.spec.ts`  | Regressão visual: catálogo, detalhe, login, carrinho com itens e cupom, checkout e recibo, em 390, 768 e 1440 px (18 imagens). Veja a seção abaixo |
 
 Em caso de falha, o trace fica em `test-results/` (`npx playwright show-trace <arquivo>`).
+
+### Regressão visual
+
+`e2e/visual.spec.ts` tira uma foto de cada tela (`toHaveScreenshot`, página inteira) e compara com a imagem de
+referência em `e2e/visual.spec.ts-snapshots/` (18 arquivos, ~1,9 MB). Se algum pixel mudar além do tolerado, o teste
+falha e o Playwright guarda a imagem nova e a diferença em `test-results/`.
+
+Para as fotos saírem iguais a cada execução, o teste: usa `reducedMotion` e `animations: 'disabled'` (o shimmer
+dos skeletons não anima) e esconde o cursor dos campos; fixa a data e a hora da página
+(`page.clock.setFixedTime`), o fuso (`America/Sao_Paulo`) e o idioma (`pt-BR`), então a data do recibo é sempre
+21/10/2026, 12:00:00; espera as fontes e todas as imagens (inclusive as "preguiçosas" do fim do catálogo)
+carregarem e decodificarem antes de capturar; e cobre com uma tarja o rodapé "Tempo real", que muda com o estado
+da conexão e a contagem de eventos. O login e o carrinho/pedido de cada tela são preparados pelas rotas do próprio
+mock (via `fetch`, que passa pelo MSW).
+
+**Para regenerar as imagens de referência** (depois de uma mudança visual intencional; confira as imagens novas
+antes de guardar):
+
+```bash
+npx playwright test e2e/visual.spec.ts --update-snapshots
+```
+
+**Atenção:** as imagens de referência foram geradas **no Windows** (os arquivos terminam em `-chromium-win32.png`)
+e **podem diferir em Linux ou macOS**: a fonte monoespaçada, o suavizado das letras e o desenho dos controles mudam
+de um sistema para outro. Por isso, em uma plataforma sem imagens de referência, estes testes **se pulam sozinhos**
+(com a instrução acima) em vez de falhar, e o `npm run test:e2e` segue passando. Para usar a regressão visual em
+Linux ou macOS, gere as imagens da sua plataforma com o comando acima.
 
 ## Cenários dos mocks
 

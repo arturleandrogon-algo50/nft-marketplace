@@ -23,7 +23,7 @@ em vez de muita coisa pela metade.
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Feito (`socket.io-client` + `@mswjs/socket.io-binding`; versão, duplicados, reconexão), com testes E2E |
 | Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho, checkout e tempo real (55 testes) |
 | Regressão visual (Playwright)                 | Pendente     |
-| Auditoria Lighthouse                          | Medida no build local (3 medições, mediana): tudo na meta, exceto Performance no mobile (89, meta 90); ainda não medida na URL publicada |
+| Auditoria Lighthouse                          | Medida (3 medições, mediana). **Site publicado: tudo na meta**, inclusive Performance no mobile (92 e 94). Build local: tudo na meta, exceto Performance no mobile (89, meta 90) |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
 | Deploy público                                | Feito: https://nft-marketplace-green-ten.vercel.app |
 
@@ -426,24 +426,40 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 página inicial (`/`) e detalhe (`/nfts/nft-048`), em mobile (padrão do Lighthouse: celular com 4G lenta e
 CPU 4× mais lenta, simulados) e desktop (perfil "desktop" do Lighthouse), 3 medições de cada, mediana. O
 Lighthouse limpa o armazenamento a cada medição, então o service worker do MSW é registrado do zero todas as
-vezes. **Medido no `vite preview` local (porta 4174), neste computador, e não na URL publicada.**
+vezes. **Medido em duas fontes, no mesmo computador:** o **site publicado** (https://nft-marketplace-green-ten.vercel.app,
+commit `f8c281d`, confirmado antes de medir: os 9 arquivos do `index.html` publicado têm os mesmos hashes do build
+local) e o **build local** (`vite preview`, porta 4174). Os números abaixo são exatos, sem arredondar.
 
-**Resultado** (mediana de 3; entre parênteses, cada medição):
+**Resultado** (mediana de 3; entre parênteses, cada medição; LCP e TBT em milissegundos):
 
-| Modo    | Página  | Performance          | Acess. | B. práticas | SEO | LCP    | CLS   | TBT   |
-| ------- | ------- | -------------------- | ------ | ----------- | --- | ------ | ----- | ----- |
-| Mobile  | Início  | **89** (87/89/89)    | 100    | 100         | 100 | 3,12 s | 0     | 89 ms |
-| Mobile  | Detalhe | **89** (90/89/87)    | 100    | 100         | 100 | 3,12 s | 0,002 | 61 ms |
-| Desktop | Início  | 99 (99/99/99)        | 100    | 100         | 100 | 0,68 s | 0     | 0 ms  |
-| Desktop | Detalhe | 99 (100/84/99)       | 100    | 100         | 100 | 0,74 s | 0     | 0 ms  |
+| Fonte       | Modo    | Página  | Performance          | Acess. | B. práticas | SEO | LCP                        | CLS   | TBT                    |
+| ----------- | ------- | ------- | -------------------- | ------ | ----------- | --- | -------------------------- | ----- | ---------------------- |
+| Publicado   | Mobile  | Início  | **92** (89/92/94)    | 100    | 100         | 100 | 2655 (2730/2655/2584)      | 0     | 150 (186/150/120)      |
+| Publicado   | Mobile  | Detalhe | **94** (87/94/94)    | 100    | 100         | 100 | 2586 (2586/2547/2595)      | 0,002 | 81 (319/73/81)         |
+| Publicado   | Desktop | Início  | 100 (100/100/100)    | 100    | 100         | 100 | 556 (543/593/556)          | 0     | 26 (50/26/2)           |
+| Publicado   | Desktop | Detalhe | 100 (100/100/100)    | 100    | 100         | 100 | 614 (601/641/614)          | 0     | 7 (7/4/43)             |
+| Build local | Mobile  | Início  | **89** (87/89/89)    | 100    | 100         | 100 | 3121 (3192/3121/3116)      | 0     | 89 (103/89/83)         |
+| Build local | Mobile  | Detalhe | **89** (90/89/87)    | 100    | 100         | 100 | 3116 (2949/3116/3302)      | 0,002 | 61 (61/62/59)          |
+| Build local | Desktop | Início  | 99 (99/99/99)        | 100    | 100         | 100 | 678 (681/667/678)          | 0     | 0 (0/0/0)              |
+| Build local | Desktop | Detalhe | 99 (100/84/99)       | 100    | 100         | 100 | 735 (720/800/735)          | 0     | 0 (0/341/0)            |
 
-Metas do desafio: Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90. **Só a Performance no
-celular ficou abaixo (89 nas duas páginas; só uma das 3 medições do detalhe chegou a 90, e nenhuma do início).**
-O 84 do desktop (detalhe) foi uma medição isolada com TBT de 341 ms, feita quando o computador estava mais lento
-(índice de benchmark do Lighthouse em 700, contra 1250 e 806 nas outras duas medições); as outras duas deram
-100 e 99.
+Metas do desafio: Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90.
+- **Site publicado: tudo atinge a meta**, inclusive a Performance no celular (92 e 94). Mesmo assim, uma das 3
+  medições de cada página no celular ficou abaixo de 90 (89 no início, 87 no detalhe; a do detalhe teve TBT de
+  319 ms). A mediana é o que conta.
+- **Build local: só a Performance no celular ficou abaixo (89 nas duas páginas;** só uma das 3 medições do
+  detalhe chegou a 90, e nenhuma do início). O 84 do desktop (detalhe) foi uma medição isolada com TBT de 341
+  ms, feita quando o computador estava mais lento (índice de benchmark do Lighthouse em 700, contra 1250 e 806
+  nas outras duas medições); as outras duas deram 100 e 99.
 
-**Por que o celular fica em 89.** O LCP do celular é ~3,1 s e o FCP ~2,8 s. O elemento do LCP é a imagem do
+**Por que o site publicado é melhor no celular.** O pacote do MSW (o maior arquivo) é entregue pelo Vercel
+comprimido com Brotli: 101.060 bytes (conferido com `curl`), contra ~166.700 bytes em gzip (nível 9) no
+`vite preview` local, cerca de 39% menos. Na rede lenta que o Lighthouse simula no celular, o tempo de download
+pesa muito, e isso é coerente com o LCP ter caído de ~3,1 s para ~2,6 s. Eu não medi outros fatores (HTTP/2,
+CDN), então o Brotli é a explicação verificada, mas não necessariamente a única.
+
+**Por que o celular fica em 89 no build local** (o que pesa também no site publicado, em menor grau). O LCP do
+celular local é ~3,1 s e o FCP ~2,8 s. O elemento do LCP é a imagem do
 primeiro card na página inicial (um data URI, sem download) e o título (`h1`) no detalhe. Nos dois casos o
 "atraso para renderizar" medido sem throttling é de 1131 ms (início) e 812 ms (detalhe), contra menos de 30 ms de
 resposta do servidor: o tempo é de JavaScript, e não de rede ou de imagem. Esse JavaScript é o app (React,
@@ -485,10 +501,24 @@ os maiores valores na primeira medição de uma sequência (partida a frio do Ch
 mais lento. Por isso só a mediana de 3 conta como resultado, e cada medição fica registrada em
 `lighthouse-results/summary.json` (o arquivo não vai para o git; rode `npm run lighthouse` para gerá-lo).
 
-**O que ainda não foi feito.** A medição na URL publicada (`LIGHTHOUSE_URL=... npm run lighthouse`), que pode dar
-números melhores (compressão do servidor e rede real) ou piores. Também não foram otimizados: o CSS que bloqueia a
-renderização (~5 KB comprimidos, economia estimada de 150 ms) e o JavaScript não usado do MSW e do pacote
-principal (~120 KB, que o Lighthouse aponta mas não dá para remover sem trocar o servidor simulado).
+**O que ainda não foi otimizado.** No site publicado, o que o Lighthouse ainda reprova no celular é o FCP, o LCP e
+o Speed Index (notas parciais de 0,76 a 0,88), o JavaScript não usado do MSW e do pacote principal (~120 KB, que
+dá para apontar mas não para remover sem trocar o servidor simulado) e o CSS que bloqueia a renderização (~5 KB
+comprimidos, economia estimada de 150 ms). Os arquivos estáticos do Vercel saem com
+`Cache-Control: public, max-age=0, must-revalidate`; o Lighthouse não reprovou por isso, mas nenhum ajuste de
+cache foi feito.
+
+**Conferência do fluxo no site publicado** (script Playwright temporário, fora do repositório, em um contexto
+novo): catálogo com 12 cards e "48 NFTs encontrados"; `/perfil` direto vai para `/entrar?redirect=%2Fperfil`;
+login com a Ana; sessão após refresh; favoritar o Aero Dust #48 (sobrevive ao refresh); 2 unidades no carrinho;
+cupom `KURIO10` (subtotal 0.378, desconto 0.0378, total 0.3402); checkout e recibo `ord-0001` com "Pago";
+carrinho zerado e edições de 4 para 2; rodapé "Tempo real: conectado"; recibo passando de "Pago" para
+"Entregue" sozinho depois de 8,2 s, sem recarregar; e a página 404 do app. Tudo passou. Um passo extra que eu
+tinha acrescentado falhou na primeira tentativa por erro do próprio script (recarregar a página logo depois da
+compra mata o temporizador de 8 s da entrega, que vive na página que criou o pedido); refeito sem recarregar,
+passou. No primeiro script, que registrava erros de console e requisições falhas, não houve nenhum erro de
+console, e a única requisição cancelada foi um `POST /api/cart/quote` interrompido ao trocar de página, o que é
+esperado (o navegador cancela as chamadas em andamento ao navegar). O segundo script não registrava o console.
 
 ## Deploy (Vercel)
 

@@ -55,19 +55,27 @@ O resultado completo (inclusive as notas de cada medição) fica em `lighthouse-
 Google Chrome instalado (ou `CHROME_PATH`). Variáveis: `LIGHTHOUSE_URL` mede um endereço já publicado,
 `LIGHTHOUSE_RUNS` muda o número de medições e `LIGHTHOUSE_ONLY=mobile` (ou `desktop`) mede só um modo.
 
-Medido neste computador, no build local (`vite preview`, com os mocks ligados), mediana de 3 medições:
+Medido neste computador, **mediana de 3 medições**, sem arredondar, em duas fontes: o **site publicado**
+(https://nft-marketplace-green-ten.vercel.app, commit `f8c281d`) e o **build local** (`vite preview`, mocks ligados).
+O LCP está em milissegundos, como o Lighthouse mede.
 
-| Modo    | Página  | Performance | Acessibilidade | Boas práticas | SEO | LCP     | CLS   | TBT   |
-| ------- | ------- | ----------- | -------------- | ------------- | --- | ------- | ----- | ----- |
-| Mobile  | Início  | **89**      | 100            | 100           | 100 | 3,12 s  | 0     | 89 ms |
-| Mobile  | Detalhe | **89**      | 100            | 100           | 100 | 3,12 s  | 0,002 | 61 ms |
-| Desktop | Início  | 99          | 100            | 100           | 100 | 0,68 s  | 0     | 0 ms  |
-| Desktop | Detalhe | 99          | 100            | 100           | 100 | 0,74 s  | 0     | 0 ms  |
+| Fonte      | Modo    | Página  | Performance | Acessib. | B. práticas | SEO | LCP (ms) | CLS   | TBT (ms) |
+| ---------- | ------- | ------- | ----------- | -------- | ----------- | --- | -------- | ----- | -------- |
+| Publicado  | Mobile  | Início  | **92**      | 100      | 100         | 100 | 2655     | 0     | 150      |
+| Publicado  | Mobile  | Detalhe | **94**      | 100      | 100         | 100 | 2586     | 0,002 | 81       |
+| Publicado  | Desktop | Início  | 100         | 100      | 100         | 100 | 556      | 0     | 26       |
+| Publicado  | Desktop | Detalhe | 100         | 100      | 100         | 100 | 614      | 0     | 7        |
+| Build local | Mobile  | Início  | 89          | 100      | 100         | 100 | 3121     | 0     | 89       |
+| Build local | Mobile  | Detalhe | 89          | 100      | 100         | 100 | 3116     | 0,002 | 61       |
+| Build local | Desktop | Início  | 99          | 100      | 100         | 100 | 678      | 0     | 0        |
+| Build local | Desktop | Detalhe | 99          | 100      | 100         | 100 | 735      | 0     | 0        |
 
-Tudo atinge a meta (Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90) **exceto a Performance
-no celular, que ficou em 89 nas duas páginas** (1 ponto abaixo, e o que pesa é o JavaScript do app e do MSW numa
-rede móvel lenta simulada). O motivo, o que foi feito e o que não funcionou
-estão no [ARCHITECTURE.md](./ARCHITECTURE.md). As medições foram feitas no servidor local, e não na URL publicada.
+**No site publicado tudo atinge a meta** (Performance ≥ 90, Acessibilidade ≥ 95, Boas práticas ≥ 95, SEO ≥ 90),
+inclusive a Performance no celular (92 e 94). Uma das 3 medições de cada página no celular ficou abaixo de 90
+(89 no início, 87 no detalhe); a mediana é o que conta. No build local o celular ficou em 89 nas duas páginas,
+1 ponto abaixo da meta: o servidor do Vercel entrega os arquivos comprimidos com Brotli (o pacote do MSW
+transfere 101.060 bytes, contra ~166.700 em gzip no servidor local). O motivo, o que foi feito e o que não
+funcionou estão no [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Testes E2E
 

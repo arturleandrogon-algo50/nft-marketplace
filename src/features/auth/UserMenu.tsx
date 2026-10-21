@@ -43,6 +43,10 @@ export function UserMenu() {
       >
         {user.name}
       </Link>
+      {/* No celular o link some (cabeçalho estreito); a página Minha conta também leva aos pedidos. */}
+      <Link to="/pedidos" className="hidden rounded px-2 text-sm hover:underline sm:inline">
+        Pedidos
+      </Link>
       <Button
         variant="outline"
         size="sm"

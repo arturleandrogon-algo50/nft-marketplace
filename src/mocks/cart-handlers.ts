@@ -2,9 +2,9 @@ import { delay, http, HttpResponse } from 'msw'
 import type { ApiError } from '@/lib/api'
 import type { CartCoupon, CartItemInput, CartQuote } from '@/features/cart/types'
 import { apiError, getRequestUser } from './auth-handlers'
+import { findNft } from './catalog'
 import { getCart, saveCart, type StoredCart } from './db'
 import { findCoupon, isExpired } from './fixtures/coupons'
-import { allNfts } from './fixtures/nfts'
 import { buildQuote } from './quote'
 import { getScenario } from './scenario'
 
@@ -21,7 +21,7 @@ function readFailure() {
 }
 
 // Cupom guardado no carrinho → cupom que vale agora (se venceu, deixa de valer).
-function activeCoupon(code: string | null): CartCoupon | null {
+export function activeCoupon(code: string | null): CartCoupon | null {
   const coupon = code ? findCoupon(code) : undefined
   return coupon && !isExpired(coupon) ? { code: coupon.code, percent: coupon.percent } : null
 }
@@ -80,7 +80,7 @@ export const cartHandlers = [
         return apiError(422, 'invalid_quantity', 'Informe uma quantidade inteira maior que zero.')
       }
 
-      const nft = allNfts.find((n) => n.id === params.nftId)
+      const nft = findNft(params.nftId)
       if (!nft) return apiError(404, 'nft_not_found', 'Este NFT não existe ou foi removido.')
       if (nft.editionsAvailable === 0) {
         return apiError(409, 'sold_out', 'Este NFT está esgotado e não pode ser comprado.')
@@ -152,7 +152,7 @@ export const cartHandlers = [
 
     const items: CartItemInput[] = []
     for (const [nftId, quantity] of totals) {
-      const nft = allNfts.find((n) => n.id === nftId)
+      const nft = findNft(nftId)
       if (!nft || nft.editionsAvailable === 0) continue
       items.push({ nftId, quantity: Math.min(quantity, nft.editionsAvailable) })
     }

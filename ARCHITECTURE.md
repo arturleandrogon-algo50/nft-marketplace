@@ -14,14 +14,14 @@ em vez de muita coisa pela metade.
 | MSW com cenários determinísticos              | Feito (listagem, detalhe e autenticação) |
 | Catálogo: busca, filtro, ordenação, paginação na URL | Feito, com testes E2E |
 | Skeleton com shimmer, estados vazio e erro    | Feito (catálogo e detalhe) |
-| Detalhe do NFT (`/nfts/$id`)                  | Feito, com testes E2E; o botão de compra depende do carrinho (pendente) |
+| Detalhe do NFT (`/nfts/$id`)                  | Feito, com testes E2E (inclui "Adicionar ao carrinho") |
 | Favoritos (com atualização otimista)          | Feito (coração no catálogo e no detalhe), com testes E2E; falta uma página que liste os favoritos |
-| Carrinho e cupom                              | Feito (página `/carrinho`, ícone no cabeçalho, cupom, visitante e mesclagem no login), com testes E2E; falta o pagamento |
-| Pagamento, pedidos idempotentes e recibo      | Pendente     |
+| Carrinho e cupom                              | Feito (página `/carrinho`, ícone no cabeçalho, cupom, visitante e mesclagem no login), com testes E2E |
+| Pagamento, pedidos idempotentes e recibo      | Feito (`/checkout`, `/pedidos`, `/pedidos/:id`; cenários de recusa e timeout), com testes E2E |
 | Cadastro, login, sessão, logout               | Feito, com testes E2E |
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Pendente |
-| Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos e carrinho (40 testes); pagamento e tempo real pendentes |
+| Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho e checkout (50 testes); tempo real pendente |
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
@@ -37,6 +37,7 @@ src/
     auth/       cadastro, login, sessão, perfil e menu do usuário
     cart/       carrinho, cupom, ícone do cabeçalho e carrinho do visitante
     favorites/  botão de coração, chamadas à API e a mutação otimista
+    orders/     checkout, chave de idempotência, recibo e lista de pedidos
     nfts/       tipos, chamadas à API, queries e telas do catálogo e do detalhe
   lib/          cliente Axios, token da sessão, QueryClient, utilitários (ETH)
   mocks/        MSW: handlers, fixtures e cenários
@@ -150,6 +151,75 @@ direto para o cache (`setQueryData`). Botões nos limites usam `aria-disabled`, 
 não tirar o foco do teclado; enquanto o app descobre quem é o usuário, "Adicionar ao carrinho" fica
 esmaecido (senão o item de quem está logado iria para o carrinho de visitante).
 
+## Checkout, pedidos e recibo
+
+**Contratos REST** (erros no formato `{ code, message }`; todas exigem login):
+
+| Método e rota          | Corpo / cabeçalho                                    | Sucesso | Erros |
+| ---------------------- | ---------------------------------------------------- | ------- | ----- |
+| `POST /api/orders`     | `{ items: [{ nftId, quantity }], couponCode }` + `Idempotency-Key` | 201 `Order` (novo) ou 200 `Order` (a mesma chave de novo) | 400 `idempotency_key_required`; 401; 402 `payment_declined`; 409 `idempotency_conflict`, `cart_empty`, `cart_changed`, `insufficient_stock`; 422 `invalid_order` |
+| `GET /api/orders`      | n/a                                                  | 200 `{ orders: Order[] }` (mais recentes primeiro) | 401; 500 no cenário `server-error` |
+| `GET /api/orders/:id`  | n/a                                                  | 200 `Order` | 401; 404 `order_not_found` (também para pedido de outro usuário); 500 no `server-error` |
+
+`Order`: `id` (`ord-0001`…), `status` (`paid`), `createdAt`, `items` (nome, imagem, preço unitário,
+quantidade e total de cada linha), `itemCount`, `coupon`, `subtotalEth`, `discountEth` e `totalEth`.
+
+**Idempotência.** O app gera uma chave (`crypto.randomUUID`) por tentativa de compra e a manda no
+cabeçalho `Idempotency-Key`. O servidor simulado guarda, por usuário, `chave → { impressão digital do
+conteúdo, id do pedido }` (`mock:idempotency`). O conteúdo é a lista de itens (em ordem fixa) e o código do
+cupom que o usuário viu no resumo.
+- Mesma chave e mesmo conteúdo: devolve o pedido que já existe, com 200 (o primeiro foi 201), sem criar outro
+  nem baixar as edições de novo. Isso vale mesmo que o carrinho já esteja vazio.
+- Mesma chave e conteúdo diferente: 409 `idempotency_conflict`.
+- Chaves de usuários diferentes nunca se misturam.
+- O trecho do handler que confere a chave e grava o pedido não tem nenhum `await`. Como o JavaScript roda uma
+  coisa de cada vez, dois pedidos com a mesma chave que cheguem juntos não passam juntos por ali: o segundo já
+  encontra o pedido do primeiro. Há um teste E2E com dois pedidos simultâneos.
+- Recusa não grava nada (nem pedido, nem chave): tentar de novo é uma compra nova.
+
+**Chave no app** (`features/orders/attempt.ts`). A chave fica no `sessionStorage`, ligada ao usuário e ao
+conteúdo do pedido. Enquanto a tentativa não tem resultado definitivo (timeout ou erro 5xx), a chave é
+reaproveitada, inclusive depois de um refresh: "Tentar de novo" usa a MESMA chave. Quando o resultado é
+definitivo (pago, recusado, erro de regra), a chave é apagada e a próxima tentativa é outra compra.
+
+**Clique repetido.** "Pagar" ignora cliques enquanto há um pagamento em andamento, com um `useRef`. Não basta o
+`isPending` da mutação: ele só muda um instante depois do clique (o TanStack agrupa as atualizações), e um
+clique duplo rápido passava pelos dois cliques (a idempotência do servidor evitava o pedido duplicado, mas a
+tela mandava duas chamadas; o teste E2E pegou isso). Sem `disabled`, que tira o foco do teclado.
+
+**Compra só confirmada pela resposta.** A tela só vai para o recibo quando chega a resposta com o pedido
+`paid`. Sem resposta (timeout de 6 s no app) ou erro 5xx, o resultado é "incerto": a tela diz que a compra
+ainda não está confirmada, que pode tentar de novo com segurança, e oferece o link para os pedidos. Não há
+sucesso otimista.
+
+**Cenários do pagamento** (`mock:scenario`): `payment-declined` responde 402 sem gravar nada;
+`payment-timeout` processa e salva o pedido normalmente, mas só responde depois de 8 s. O app dá timeout aos
+6 s sem saber que o pedido existe, e a nova tentativa (mesma chave) recebe o pedido já pago, imediatamente.
+
+**Ao aprovar** (tudo no mesmo trecho síncrono do handler): confere que o carrinho da conta ainda é o que o
+usuário viu (`cart_changed`) e que há edições (`insufficient_stock`, com o nome do NFT); monta o pedido; baixa
+as edições (`mock:stock`, e a `version` do NFT sobe a cada venda, para o Socket.IO usar depois); esvazia o
+carrinho; grava pedido e chave.
+
+**Snapshot.** O pedido guarda uma CÓPIA de nome, imagem, preço unitário, quantidade e totais no momento da
+compra, e o recibo lê só essa cópia. Alterar o catálogo depois não muda o recibo. O teste altera nome e preço do
+NFT (`mock:nft-overrides`) e confere o detalhe com os valores novos e o recibo com os antigos.
+
+**Catálogo "vivo" do mock** (`mocks/catalog.ts`): as fixtures nunca mudam; `getNfts()` devolve cada NFT com o
+vendido já descontado das edições (`mock:stock`) e as alterações manuais aplicadas (`mock:nft-overrides`).
+Lista, detalhe, cotação do carrinho e o checkout passam por ali.
+
+**Entre usuários.** Pedidos ficam em `mock:orders`, por usuário. `GET /api/orders/:id` procura só nos pedidos
+de quem fez a chamada, então o pedido de outro dá 404 (e não 403): nem a existência dele aparece. No app, as
+chaves de cache incluem o id do usuário (`['orders', 'list' | 'detail', userId, …]`) e o login/logout usam
+`resetCache()`. O teste troca de conta sem recarregar a página.
+
+**Tela.** `/checkout` mostra o resumo, o aviso de pagamento simulado e o botão "Pagar" (vira "Processando
+pagamento…" e, depois de um resultado incerto, "Tentar de novo"). `/pedidos/:id` é o recibo, com skeleton,
+404 e erro com "Tentar novamente". `/pedidos` lista os pedidos, com estado vazio. As três ficam sob a rota de
+layout `authenticated`. Depois da compra, o carrinho é zerado com `resetQueries` (e não só invalidado): assim o
+ícone do cabeçalho mostra 0 na hora, em vez de manter o número antigo até a nova busca chegar.
+
 ## Sessão e autenticação
 
 **Contratos REST** (erros sempre no formato `{ code, message }`):
@@ -221,9 +291,9 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
 - `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
   antes de aparecer na tela.
-- **Estabilidade (medida, com 40 testes):** a última rodada dupla (`--repeat-each=2`, 80
-  execuções) teve 80 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 40 de
-  40. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
+- **Estabilidade (medida, com 50 testes):** a última rodada dupla (`--repeat-each=2`, 100
+  execuções) teve 100 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 50 de
+  50. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
   como "flaky" pelo Playwright). Em rodadas isoladas ainda mais antigas apareceram travadas
   ocasionais na primeira carga da página, em testes de `auth` ou na 1ª carga do catálogo. Em um
   dos casos, o snapshot da página mostrava o formulário de login
@@ -246,6 +316,11 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   `exact: true`). Um era um bug real do app, o vazamento entre usuários descrito em "Troca de
   usuário e logout". Depois, o teste de mesclagem ainda falhava sob carga (6 em 20 execuções
   paralelas fora do Playwright Test) por causa da ordem no login; corrigida, deu 0 em 20.
+- Na primeira execução do checkout, 8 dos 10 testes passaram e 2 falharam. Um era um problema real da tela:
+  um clique duplo em "Pagar" mandava duas chamadas (a idempotência do servidor evitava o pedido duplicado,
+  mas a trava do cliente não funcionava), corrigido com o `useRef`. O outro era do teste: clicar em "Sair" e
+  abrir `/entrar` sem esperar o logout terminar (a sessão ainda existe e o app redireciona), o mesmo erro que
+  já tinha acontecido antes no teste do carrinho; hoje o teste espera o link "Entrar" aparecer.
 
 ## Deploy (Vercel)
 
@@ -268,14 +343,20 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - `staleTime` de 30 s: voltar a uma tela recente não refaz a chamada.
 - `refetchOnWindowFocus` desligado.
 - Retry: erros 4xx não tentam de novo; falhas 5xx ou de rede tentam até 2 vezes.
-- Chaves de cache em `features/nfts/queries.ts` (`nftKeys`), `features/auth/queries.ts` (`authKeys`), `features/favorites/queries.ts` (`favoriteKeys`) e `features/cart/keys.ts` (`cartKeys`). As chaves de favoritos e de carrinho incluem o id do usuário.
+- Chaves de cache em `features/nfts/queries.ts` (`nftKeys`), `features/auth/queries.ts` (`authKeys`), `features/favorites/queries.ts` (`favoriteKeys`) e `features/cart/keys.ts` (`cartKeys`) e `features/orders/queries.ts` (`orderKeys`). As chaves de favoritos, carrinho e pedidos incluem o id do usuário.
 - Login, cadastro e logout zeram todo o cache e as mutações (`resetCache()`).
 
 ## Mocks (MSW)
 
 - Ativados por `VITE_USE_MOCKS=true`, inclusive no build de demonstração.
-- Cenário ativo no `localStorage` (`mock:scenario`): `default`, `empty`, `slow`, `server-error`, `favorites-error`.
-  O `server-error` também derruba a leitura do carrinho e a cotação; as alterações do carrinho não são afetadas.
+- Cenário ativo no `localStorage` (`mock:scenario`): `default`, `empty`, `slow`, `server-error`,
+  `favorites-error`, `payment-declined`, `payment-timeout`.
+  O `server-error` também derruba a leitura do carrinho, a cotação e a leitura de pedidos; as alterações do
+  carrinho e o pagamento não são afetados.
+- "Banco" do servidor simulado, todo no `localStorage` e só lido pelo MSW (`mocks/db.ts`): `mock:users`,
+  `mock:sessions`, `mock:favorites`, `mock:carts`, `mock:orders`, `mock:order-seq`, `mock:idempotency`,
+  `mock:stock` (edições vendidas e versão por NFT) e `mock:nft-overrides` (nome e preço alterados à mão, só
+  para os testes de snapshot).
 - No cenário `slow`, a latência é um rodízio previsível (não aleatório), o que permite
   reproduzir respostas fora de ordem.
 - Fixtures determinísticas em `mocks/fixtures/nfts.ts` (48 NFTs, alguns esgotados).
@@ -294,10 +375,15 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os "usuários" e sessões do mock vivem no `localStorage` do próprio navegador. Outro
   navegador ou dispositivo não enxerga as mesmas contas (exceto as de teste).
 - Carrinho: não há como remover um cupom já aplicado (só trocar por outro válido); visitante não
-  usa cupom; a página do carrinho ainda não tem como finalizar a compra. O carrinho do visitante
+  usa cupom. O carrinho do visitante
   vive num só navegador e mudanças feitas em outra aba só aparecem ao recarregar. A contagem do
   cabeçalho do visitante vem de uma cotação (`POST /api/cart/quote`) a cada carregamento de
   página, e fica "0 itens" até a resposta chegar. Se a mesclagem do login falhar, os itens ficam no
   navegador e só são tentados de novo no próximo login.
-- Testes E2E cobrem só o Chromium desktop. Pagamento, recibo, tempo real e regressão visual
-  ainda não têm testes.
+- Checkout: o pagamento é totalmente simulado (não há forma de pagamento a escolher nem dados de
+  cartão). Só existem pedidos pagos: a recusa não cria pedido. A chave de idempotência fica no
+  `sessionStorage`; se a aba for fechada no meio de um timeout, a nova tentativa gera outra chave e
+  poderia duplicar (o pedido anterior apareceria em `/pedidos`). O servidor não cancela nem reembolsa
+  pedidos. As edições vendidas só existem no navegador (`mock:stock`): outro navegador começa com o
+  estoque inicial.
+- Testes E2E cobrem só o Chromium desktop. Tempo real e regressão visual ainda não têm testes.

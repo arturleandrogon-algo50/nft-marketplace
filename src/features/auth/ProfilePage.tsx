@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { meOptions } from './queries'
 
 // Por enquanto só mostra quem está logado. Edição de perfil e carteiras ainda estão pendentes.
@@ -21,6 +23,9 @@ export function ProfilePage() {
           <dd className="font-medium break-all">{user.email}</dd>
         </div>
       </dl>
+      <Button asChild variant="outline" className="mt-6">
+        <Link to="/pedidos">Meus pedidos</Link>
+      </Button>
     </div>
   )
 }

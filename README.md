@@ -66,6 +66,7 @@ passariam contra código que não é o atual. Cada teste começa com o navegador
 | --------------------- | ----------- |
 | `e2e/catalog.spec.ts` | Listagem; busca na URL e refresh; filtro volta à página 1; filtros vindos da URL e botão voltar; busca sem resultado; cenário `empty`; cenário `server-error` com "Tentar novamente" |
 | `e2e/nft-detail.spec.ts` | Acesso direto e refresh; abrir pelo card e voltar; NFT inexistente (404); edição esgotada; limite de quantidade e total exato em ETH; erro do servidor com "Tentar novamente" |
+| `e2e/checkout.spec.ts` | Compra aprovada de ponta a ponta (recibo, carrinho vazio, edições baixadas); recusa (carrinho e edições intactos); timeout seguido de nova tentativa com a mesma chave, sem duplicar; clique duplo gera um pedido só; mesma chave devolve o mesmo pedido e conteúdo diferente dá 409; dois pedidos simultâneos com a mesma chave criam um só; recibo não muda quando o catálogo muda; pedidos separados entre usuários (404 para o pedido de outro); edições que acabam antes do pagamento; visitante vai ao login e volta ao checkout |
 | `e2e/cart.spec.ts` | Adicionar do detalhe com a quantidade escolhida; itens iguais se somam; alterar e remover; limite de edições e NFT esgotado; cupom válido, expirado e inválido (valores exatos em ETH); carrinho e cupom depois do refresh; carrinho de visitante (persiste, sem cupom); mesclagem ao fazer login; dois usuários com carrinhos separados, sem recarregar a página; erro do servidor com "Tentar novamente" |
 | `e2e/favorites.spec.ts` | Favoritar e desfavoritar; sobrevive ao refresh; catálogo e detalhe mostram o mesmo estado; visitante vai ao login e volta à mesma página; dois usuários trocando de conta sem recarregar a página não veem os favoritos um do outro; rollback com o cenário `favorites-error` |
 | `e2e/auth.spec.ts`    | Rota protegida → login → volta; validação e foco; senha errada; senha fora do storage; sessão após refresh; token inválido; logout; troca de usuário sem vazar dados; logout em outra aba; cadastro e e-mail repetido |
@@ -85,7 +86,9 @@ localStorage.setItem('mock:scenario', 'slow')   // depois, recarregue a página
 | `default`      | Catálogo com 48 NFTs, resposta em ~200 ms                               |
 | `empty`        | Catálogo sem nenhum item                                                |
 | `slow`         | Latência variável (0,8 s, 1,5 s, 2,2 s em rodízio), útil para os skeletons; login e cadastro levam 1,5 s |
-| `server-error` | Listagem, detalhe do NFT, leitura do carrinho e cotação respondem HTTP 500 (login, cadastro e as alterações do carrinho continuam funcionando) |
+| `server-error` | Listagem, detalhe do NFT, leitura do carrinho, cotação e leitura de pedidos respondem HTTP 500 (login, cadastro, as alterações do carrinho e o pagamento continuam funcionando) |
+| `payment-declined` | O pagamento é recusado (HTTP 402, "Pagamento recusado…"): nenhum pedido é criado, e carrinho e edições ficam intactos |
+| `payment-timeout` | O servidor processa e salva o pedido, mas só responde depois de 8 s. O app dá timeout aos 6 s e trata o resultado como incerto; "Tentar de novo" reusa a mesma chave e recupera o pedido, sem duplicar |
 | `favorites-error` | Favoritar e desfavoritar respondem HTTP 500 depois de 0,5 s (a lista de favoritos carrega normalmente), para ver o rollback do coração |
 
 Para voltar ao padrão: `localStorage.setItem('mock:scenario', 'default')`.
@@ -105,7 +108,8 @@ Também é possível criar uma conta em `/cadastro` (senha com 8+ caracteres, le
 Contas criadas ficam salvas no `localStorage` do navegador (chave `mock:users`). Para apagar
 contas e sessões do mock: `localStorage.removeItem('mock:users'); localStorage.removeItem('mock:sessions')`.
 
-Rotas: `/entrar`, `/cadastro` e `/perfil` (exige login).
+Rotas: `/entrar`, `/cadastro`, `/perfil`, `/checkout`, `/pedidos` e `/pedidos/:id` (todas exigem login,
+menos as duas primeiras). Visitante que abre uma rota protegida vai para `/entrar` e volta para ela.
 
 ## Carrinho e cupons de teste
 
@@ -121,5 +125,25 @@ um por usuário. Cupom só vale para quem está logado.
 | qualquer outro | Inválido: "Cupom inválido. Confira o código e tente de novo." |
 
 Subtotal, desconto e total vêm do servidor simulado como string decimal em ETH, calculados com
-`BigInt` (nunca `number`). A compra em si (pagamento e recibo) ainda não existe: a página do
-carrinho avisa isso.
+`BigInt` (nunca `number`).
+
+## Checkout, pedidos e recibo
+
+No carrinho, "Finalizar compra" leva a `/checkout` (visitante passa pelo login, e o carrinho vai junto).
+O botão "Pagar" cria o pedido com `POST /api/orders` e o cabeçalho `Idempotency-Key`: a mesma chave com o
+mesmo conteúdo devolve o mesmo pedido, sem duplicar, e a mesma chave com conteúdo diferente dá 409
+`idempotency_conflict`. A compra só é confirmada quando a resposta aprovada do servidor simulado chega;
+recusa e timeout não confirmam nada (veja os cenários `payment-declined` e `payment-timeout`).
+
+Ao aprovar, o servidor baixa as edições dos NFTs, esvazia o carrinho da conta e grava o pedido (`paid`)
+com uma cópia do que valia na hora: o recibo em `/pedidos/:id` não muda se o catálogo mudar depois. A lista
+fica em `/pedidos`. Um usuário nunca vê o pedido de outro (a API responde 404).
+
+Para ver o recibo permanecer igual quando o catálogo muda, altere um NFT no console e abra o detalhe:
+
+```js
+localStorage.setItem('mock:nft-overrides', JSON.stringify({ 'nft-048': { name: 'Outro nome', priceEth: '9.999' } }))
+```
+
+Para apagar o estoque vendido, pedidos e carrinhos do mock:
+`['mock:stock', 'mock:orders', 'mock:order-seq', 'mock:idempotency', 'mock:carts'].forEach((k) => localStorage.removeItem(k))`.

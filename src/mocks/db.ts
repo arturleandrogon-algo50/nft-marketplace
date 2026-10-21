@@ -1,5 +1,7 @@
 import type { User } from '@/features/auth/types'
 import type { CartItemInput } from '@/features/cart/types'
+import type { Nft } from '@/features/nfts/types'
+import type { Order } from '@/features/orders/types'
 import { seedUsers } from './fixtures/users'
 
 // "Banco de dados" do servidor simulado. Fica no localStorage para os
@@ -9,6 +11,11 @@ const USERS_KEY = 'mock:users'
 const SESSIONS_KEY = 'mock:sessions'
 const FAVORITES_KEY = 'mock:favorites'
 const CARTS_KEY = 'mock:carts'
+const STOCK_KEY = 'mock:stock'
+const OVERRIDES_KEY = 'mock:nft-overrides'
+const ORDERS_KEY = 'mock:orders'
+const ORDER_SEQ_KEY = 'mock:order-seq'
+const IDEMPOTENCY_KEY = 'mock:idempotency'
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 
 export interface StoredUser extends User {
@@ -144,4 +151,73 @@ export function saveCart(userId: string, cart: StoredCart) {
   const all = read<Record<string, StoredCart>>(CARTS_KEY, {})
   all[userId] = cart
   write(CARTS_KEY, all)
+}
+
+// --- Estoque e alterações do catálogo ---------------------------------------
+
+// O catálogo base (fixtures) nunca muda. O que foi vendido fica aqui: quantas edições saíram
+// e quantas vezes o NFT mudou (a "versão" sobe a cada venda).
+export interface StockEntry {
+  sold: number
+  bumps: number
+}
+
+export function getStock() {
+  return read<Record<string, StockEntry>>(STOCK_KEY, {})
+}
+
+export function recordSale(nftId: string, quantity: number) {
+  const stock = getStock()
+  const current = stock[nftId] ?? { sold: 0, bumps: 0 }
+  stock[nftId] = { sold: current.sold + quantity, bumps: current.bumps + 1 }
+  write(STOCK_KEY, stock)
+}
+
+// Alterações manuais no catálogo (nome, preço), usadas nos testes para provar que o
+// recibo de um pedido não muda quando o catálogo muda.
+export type NftOverride = Partial<Pick<Nft, 'name' | 'priceEth'>>
+
+export function getNftOverrides() {
+  return read<Record<string, NftOverride>>(OVERRIDES_KEY, {})
+}
+
+// --- Pedidos ----------------------------------------------------------------
+
+// Pedidos por usuário: um usuário só enxerga a própria lista.
+export function getOrders(userId: string) {
+  return read<Record<string, Order[]>>(ORDERS_KEY, {})[userId] ?? []
+}
+
+export function findOrder(userId: string, orderId: string) {
+  return getOrders(userId).find((order) => order.id === orderId)
+}
+
+export function saveOrder(userId: string, order: Order) {
+  const all = read<Record<string, Order[]>>(ORDERS_KEY, {})
+  all[userId] = [...(all[userId] ?? []), order]
+  write(ORDERS_KEY, all)
+}
+
+// Ids sequenciais e previsíveis ("ord-0001"), sem Math.random.
+export function nextOrderId() {
+  const next = read<number>(ORDER_SEQ_KEY, 0) + 1
+  write(ORDER_SEQ_KEY, next)
+  return `ord-${String(next).padStart(4, '0')}`
+}
+
+// Chave de idempotência → pedido que ela criou, com a "impressão digital" do conteúdo
+// do pedido. Por usuário: a mesma chave de dois usuários nunca se mistura.
+export interface IdempotencyRecord {
+  fingerprint: string
+  orderId: string
+}
+
+export function findIdempotency(userId: string, key: string) {
+  return read<Record<string, Record<string, IdempotencyRecord>>>(IDEMPOTENCY_KEY, {})[userId]?.[key]
+}
+
+export function saveIdempotency(userId: string, key: string, record: IdempotencyRecord) {
+  const all = read<Record<string, Record<string, IdempotencyRecord>>>(IDEMPOTENCY_KEY, {})
+  all[userId] = { ...(all[userId] ?? {}), [key]: record }
+  write(IDEMPOTENCY_KEY, all)
 }

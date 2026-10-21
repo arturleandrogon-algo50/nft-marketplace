@@ -1,14 +1,15 @@
 import type { CartCoupon, CartItemInput, CartLine, CartQuote } from '@/features/cart/types'
 import { fromWei, multiplyEth, toWei } from '@/lib/eth'
-import { allNfts } from './fixtures/nfts'
+import { getNfts } from './catalog'
 
 // Monta a cotação do carrinho. Dinheiro nunca passa por number: tudo é BigInt em wei
 // (18 casas) e só volta a ser string decimal no final.
 export function buildQuote(items: CartItemInput[], coupon: CartCoupon | null): CartQuote {
   const lines: CartLine[] = []
+  const nfts = getNfts()
 
   for (const item of items) {
-    const nft = allNfts.find((n) => n.id === item.nftId)
+    const nft = nfts.find((n) => n.id === item.nftId)
     // NFT que sumiu ou esgotou não entra na cotação, e a quantidade nunca passa das edições disponíveis.
     if (!nft || nft.editionsAvailable === 0) continue
 

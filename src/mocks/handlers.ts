@@ -6,7 +6,8 @@ import type { Nft, NftSortKey, Paginated } from '@/features/nfts/types'
 import { authHandlers } from './auth-handlers'
 import { cartHandlers } from './cart-handlers'
 import { favoritesHandlers } from './favorites-handlers'
-import { allNfts } from './fixtures/nfts'
+import { ordersHandlers } from './orders-handlers'
+import { findNft, getNfts } from './catalog'
 import { getScenario } from './scenario'
 
 // Conta as requisições para a latência variável ser previsível (e não aleatória).
@@ -37,6 +38,7 @@ export const handlers = [
   ...authHandlers,
   ...favoritesHandlers,
   ...cartHandlers,
+  ...ordersHandlers,
 
   http.get<never, never, NftsResponse>('/api/nfts', async ({ request }) => {
     const scenario = getScenario()
@@ -60,7 +62,7 @@ export const handlers = [
     const page = Math.max(1, Number(params.get('page')) || 1)
     const pageSize = Math.min(48, Math.max(1, Number(params.get('pageSize')) || 12))
 
-    const source = scenario === 'empty' ? [] : allNfts
+    const source = scenario === 'empty' ? [] : getNfts()
     const filtered = source.filter((nft) => {
       const matchesCategory = !category || nft.category === category
       const matchesText =
@@ -92,7 +94,7 @@ export const handlers = [
     }
 
     // No cenário "empty" o catálogo não tem itens, então nenhum id existe.
-    const nft = scenario === 'empty' ? undefined : allNfts.find((n) => n.id === params.id)
+    const nft = scenario === 'empty' ? undefined : findNft(params.id)
     if (!nft) {
       return HttpResponse.json<ApiError>(
         { code: 'nft_not_found', message: 'Este NFT não existe ou foi removido.' },

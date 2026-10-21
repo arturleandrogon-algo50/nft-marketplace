@@ -200,9 +200,10 @@ export function CartPage() {
               </div>
             </dl>
 
-            <p className="text-xs text-white/60">
-              A finalização da compra ainda não está disponível.
-            </p>
+            {/* Visitante também clica: o checkout manda para o login e o carrinho vai junto. */}
+            <Button asChild className="w-full">
+              <Link to="/checkout">Finalizar compra</Link>
+            </Button>
           </aside>
         </div>
       )}

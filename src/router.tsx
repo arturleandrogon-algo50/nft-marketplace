@@ -15,6 +15,9 @@ import { CartPage } from '@/features/cart/CartPage'
 import { CatalogPage } from '@/features/nfts/CatalogPage'
 import { NftDetailPage } from '@/features/nfts/NftDetailPage'
 import { DEFAULT_SEARCH, validateCatalogSearch } from '@/features/nfts/search'
+import { CheckoutPage } from '@/features/orders/CheckoutPage'
+import { OrderPage } from '@/features/orders/OrderPage'
+import { OrdersPage } from '@/features/orders/OrdersPage'
 import { queryClient } from '@/lib/query-client'
 
 const rootRoute = createRootRoute({
@@ -83,13 +86,32 @@ const profileRoute = createRoute({
   component: ProfilePage,
 })
 
+// Checkout e pedidos exigem login: visitante vai para /entrar e volta para a página que pediu.
+const checkoutRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/checkout',
+  component: CheckoutPage,
+})
+
+const ordersRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/pedidos',
+  component: OrdersPage,
+})
+
+const orderRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/pedidos/$id',
+  component: OrderPage,
+})
+
 const routeTree = rootRoute.addChildren([
   catalogRoute,
   nftDetailRoute,
   cartRoute,
   loginRoute,
   registerRoute,
-  authenticatedRoute.addChildren([profileRoute]),
+  authenticatedRoute.addChildren([profileRoute, checkoutRoute, ordersRoute, orderRoute]),
 ])
 
 export const router = createRouter({

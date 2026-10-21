@@ -1,13 +1,19 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { ANA, BRUNO, fillLogin, login, setMockScenario } from './helpers.ts'
+import {
+  addFromDetail,
+  ANA,
+  BRUNO,
+  cartLink,
+  fillLogin,
+  login,
+  setMockScenario,
+} from './helpers.ts'
 
 // Valores das fixtures determinísticas:
 // - nft-048 "Aero Dust #48": 0.189 ETH, 4 edições disponíveis
 // - nft-047 "Hollow Kings #47": 0.152 ETH, 2 edições disponíveis
 // - nft-045 "Obsidian Garden #45": esgotado
 
-// Ícone do carrinho no cabeçalho: o nome acessível traz a contagem.
-const cartLink = (page: Page) => page.getByRole('link', { name: /^Carrinho, / })
 const lineOf = (page: Page, nftName: string) =>
   page.getByRole('listitem').filter({ hasText: nftName })
 // exact: sem isso o rótulo também casaria com "Aumentar/Diminuir quantidade de ...".
@@ -20,16 +26,6 @@ const summaryValue = (page: Page, label: RegExp): Locator =>
     .getByRole('complementary', { name: 'Resumo do pedido' })
     .getByText(label)
     .locator('xpath=following-sibling::dd')
-
-// Abre o detalhe, escolhe a quantidade e clica em "Adicionar ao carrinho".
-// Quem chama espera o resultado (contagem do cabeçalho, aviso ou erro) antes de seguir.
-async function addFromDetail(page: Page, nftId: string, quantity = 1) {
-  await page.goto(`/nfts/${nftId}`)
-  const more = page.getByRole('button', { name: 'Aumentar quantidade' })
-  for (let i = 1; i < quantity; i++) await more.click()
-  await expect(page.getByLabel('Quantidade escolhida')).toHaveText(String(quantity))
-  await page.getByRole('button', { name: 'Adicionar ao carrinho' }).click()
-}
 
 test.describe('Carrinho', () => {
   test('adiciona do detalhe com a quantidade escolhida e mostra a cotação', async ({ page }) => {

@@ -11,17 +11,17 @@ em vez de muita coisa pela metade.
 | TanStack Router (rotas e parâmetros de busca) | Feito        |
 | TanStack Query + Axios                        | Feito        |
 | shadcn/ui (Button, Skeleton, Input, Label)    | Feito, parcial |
-| MSW com cenários determinísticos              | Feito (listagem e autenticação) |
+| MSW com cenários determinísticos              | Feito (listagem, detalhe e autenticação) |
 | Catálogo: busca, filtro, ordenação, paginação na URL | Feito, com testes E2E |
-| Skeleton com shimmer, estados vazio e erro    | Feito (catálogo) |
-| Detalhe do NFT                                | Pendente     |
+| Skeleton com shimmer, estados vazio e erro    | Feito (catálogo e detalhe) |
+| Detalhe do NFT (`/nfts/$id`)                  | Feito, com testes E2E; o botão de compra depende do carrinho (pendente) |
 | Favoritos (com atualização otimista)          | Pendente     |
 | Carrinho e cupom                              | Pendente     |
 | Pagamento, pedidos idempotentes e recibo      | Pendente     |
 | Cadastro, login, sessão, logout               | Feito, com testes E2E |
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
 | Socket.IO via MSW (`nft.updated`, `order.updated`) | Pendente |
-| Testes E2E (Playwright)                       | Feito para catálogo e autenticação (18 testes); compra e tempo real pendentes |
+| Testes E2E (Playwright)                       | Feito para catálogo, autenticação e detalhe do NFT (24 testes); compra e tempo real pendentes |
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
@@ -35,7 +35,7 @@ src/
   components/ui componentes no padrão shadcn/ui
   features/
     auth/       cadastro, login, sessão, perfil e menu do usuário
-    nfts/       tipos, chamadas à API, queries e telas do catálogo
+    nfts/       tipos, chamadas à API, queries e telas do catálogo e do detalhe
   lib/          cliente Axios, token da sessão, QueryClient, utilitários (ETH)
   mocks/        MSW: handlers, fixtures e cenários
   router.tsx    árvore de rotas
@@ -58,6 +58,14 @@ comparados como inteiros de 18 casas (`BigInt`) em `lib/eth.ts`, sem `number`.
 **Respostas fora de ordem.** Cada consulta recebe um `AbortSignal` e cada combinação de
 parâmetros tem sua própria chave de cache; resposta de uma busca antiga não sobrescreve a
 atual. Na troca de página a lista anterior fica na tela (esmaecida) até a nova chegar.
+
+## Detalhe do NFT
+
+`GET /api/nfts/:id` devolve 200 com o NFT ou 404 `{ code: "nft_not_found", message }`. Os cenários
+`slow` e `server-error` valem aqui; no `empty` nenhum id existe. A tela trata o 404 como "NFT não
+encontrado" (sem "Tentar novamente", porque repetir não resolve) e os demais erros com alerta e botão
+de nova tentativa. A quantidade fica entre 1 e as edições disponíveis, e o total é calculado em
+`BigInt` (`multiplyEth` em `lib/eth.ts`), nunca com `number`.
 
 ## Sessão e autenticação
 
@@ -116,11 +124,19 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
 - `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
   antes de aparecer na tela.
-- Estabilidade: a suíte passou 54 de 54 vezes com `--repeat-each=3`. Numa rodada anterior
-  sob mais carga, houve uma falha isolada na primeira carga do catálogo ("Sem conexão com o
-  servidor") e, num teste de estresse (40 execuções, 4 workers), 2 páginas que não carregaram
-  a tempo. A causa não foi confirmada; a suspeita é lentidão da máquina com vários navegadores
-  em paralelo. No CI há 1 retry.
+- **Estabilidade (medida, com 24 testes):** a última rodada dupla (`--repeat-each=2`, 48
+  execuções) teve 46 passando de primeira, 2 passando só na 2ª tentativa (marcadas como
+  "flaky" pelo Playwright) e nenhuma falha final. Antes disso, em rodadas isoladas, apareceram
+  travadas ocasionais na primeira carga da página, sempre em testes de `auth` ou na 1ª
+  carga do catálogo. Em um dos casos, o snapshot da página mostrava o formulário de login
+  completo e o Playwright mesmo assim não conseguiu preencher o campo em 30 s, o que aponta
+  para lentidão do ambiente de teste, não para erro do app. Em 160 cargas isoladas da página
+  (4 em paralelo, fora do Playwright Test) o app montou todas as vezes. **A causa não foi
+  confirmada.** Por isso há `retries: 1` (inclusive local): a instabilidade continua visível
+  como "flaky" em vez de escondida.
+- Um teste meu (filtro volta à página 1) só passava por acaso, pegando a lista antiga ainda
+  na tela (`keepPreviousData`). Foi corrigido para verificar o total filtrado e a ausência da
+  paginação, que são estáveis.
 
 ## Deploy (Vercel)
 

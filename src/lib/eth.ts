@@ -13,3 +13,16 @@ export function compareEth(a: string, b: string): number {
   if (diff > 0n) return 1
   return 0
 }
+
+// Volta de wei para a string decimal, sem zeros sobrando no fim: 756000000000000000n → "0.756".
+function fromWei(wei: bigint): string {
+  const digits = wei.toString().padStart(DECIMALS + 1, '0')
+  const whole = digits.slice(0, -DECIMALS)
+  const fraction = digits.slice(-DECIMALS).replace(/0+$/, '')
+  return fraction ? `${whole}.${fraction}` : whole
+}
+
+// Preço × quantidade inteira, sem passar por number: ("0.189", 4) → "0.756".
+export function multiplyEth(value: string, quantity: number): string {
+  return fromWei(toWei(value) * BigInt(quantity))
+}

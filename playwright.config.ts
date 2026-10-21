@@ -10,7 +10,9 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: isCI,
-  retries: isCI ? 1 : 0,
+  // 1 retry: a primeira carga da página (service worker do MSW) às vezes trava numa execução
+  // isolada, sem causa confirmada. Teste que passa só na 2ª tentativa aparece como "flaky".
+  retries: 1,
   reporter: isCI ? 'github' : 'list',
   // Erros 5xx têm 2 retries no TanStack Query (~3 s até a tela de erro); 10 s dá folga.
   expect: { timeout: 10_000 },

@@ -33,8 +33,10 @@ test.describe('Catálogo', () => {
     await expect(page.getByText('Página 2 de 4')).toBeVisible()
 
     await page.getByLabel('Categoria').selectOption('art')
+    // "page=2" saiu da URL. Arte tem 10 NFTs (cabem numa página), então a paginação some.
     await expect(page).toHaveURL('/?category=art')
-    await expect(page.getByText(/Página 1 de/)).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('10 NFTs encontrados')
+    await expect(page.getByRole('navigation', { name: 'Paginação' })).toHaveCount(0)
 
     await page.getByLabel('Ordenar por').selectOption('price-asc')
     await expect(page).toHaveURL('/?category=art&sort=price-asc')

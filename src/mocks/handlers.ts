@@ -74,4 +74,28 @@ export const handlers = [
       pageSize,
     })
   }),
+
+  http.get<{ id: string }, never, Nft | ApiError>('/api/nfts/:id', async ({ params }) => {
+    const scenario = getScenario()
+    requestCount += 1
+    await delay(scenario === 'slow' ? 800 + (requestCount % 3) * 700 : 200)
+
+    if (scenario === 'server-error') {
+      return HttpResponse.json<ApiError>(
+        { code: 'internal_error', message: 'Erro temporário no servidor. Tente novamente.' },
+        { status: 500 },
+      )
+    }
+
+    // No cenário "empty" o catálogo não tem itens, então nenhum id existe.
+    const nft = scenario === 'empty' ? undefined : allNfts.find((n) => n.id === params.id)
+    if (!nft) {
+      return HttpResponse.json<ApiError>(
+        { code: 'nft_not_found', message: 'Este NFT não existe ou foi removido.' },
+        { status: 404 },
+      )
+    }
+
+    return HttpResponse.json<Nft>(nft)
+  }),
 ]

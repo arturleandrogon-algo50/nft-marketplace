@@ -12,6 +12,7 @@ import { meOptions } from '@/features/auth/queries'
 import { validateAuthSearch } from '@/features/auth/redirect'
 import { RegisterPage } from '@/features/auth/RegisterPage'
 import { CatalogPage } from '@/features/nfts/CatalogPage'
+import { NftDetailPage } from '@/features/nfts/NftDetailPage'
 import { DEFAULT_SEARCH, validateCatalogSearch } from '@/features/nfts/search'
 import { queryClient } from '@/lib/query-client'
 
@@ -27,6 +28,12 @@ const catalogRoute = createRoute({
   // Valores padrão não aparecem na URL: "/" em vez de "/?sort=recent&page=1".
   search: { middlewares: [stripSearchParams(DEFAULT_SEARCH)] },
   component: CatalogPage,
+})
+
+const nftDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/nfts/$id',
+  component: NftDetailPage,
 })
 
 // Quem já está logado não precisa ver login nem cadastro.
@@ -70,6 +77,7 @@ const profileRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   catalogRoute,
+  nftDetailRoute,
   loginRoute,
   registerRoute,
   authenticatedRoute.addChildren([profileRoute]),

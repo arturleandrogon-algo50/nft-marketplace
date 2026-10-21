@@ -543,6 +543,42 @@ passou. No primeiro script, que registrava erros de console e requisições falh
 console, e a única requisição cancelada foi um `POST /api/cart/quote` interrompido ao trocar de página, o que é
 esperado (o navegador cancela as chamadas em andamento ao navegar). O segundo script não registrava o console.
 
+## Rodar do zero (verificação de um checkout limpo)
+
+Para provar que o projeto roda como quem avalia vai rodar, clonei o repositório do GitHub (commit `a496ef5`) em uma
+pasta nova, no Windows (Node 24.22.0, npm 11.19.1), e segui só o que o README diz, na ordem:
+
+| Passo                              | Resultado |
+| ---------------------------------- | --------- |
+| `npm install`                      | OK em 50 s (245 pacotes, 0 vulnerabilidades); 70 s na repetição |
+| `npx playwright install chromium`  | OK. Numa pasta de navegadores vazia baixou tudo do zero em 112 s |
+| `npm run build`                    | OK em 27 a 35 s |
+| `npm run test:e2e`                 | OK, código de saída 0, **73 de 73** (18 deles visuais, com as imagens do repositório). 1ª execução: 2 "flaky", 5,0 min. 2ª, com o clone zerado e o README corrigido: 0 "flaky", 3,7 min |
+| `npm run dev`                      | OK. O catálogo carregou em 2,3 s e 2,7 s, com "48 NFTs encontrados", 12 cards e nenhum erro no console |
+
+Nada exigiu variável de ambiente, `.env` criado à mão ou comando extra. `.env.example` existe e explica o
+`VITE_USE_MOCKS` (o `.env` com o mesmo valor já vem no repositório).
+
+**O que o README não dizia (e foi corrigido):** a instalação do navegador do Playwright só aparecia na seção de
+testes, e não no Setup; o `cp .env.example .env` era desnecessário (o `.env` já está versionado) e não existe no `cmd`
+do Windows; "Node 22 ou superior" estava impreciso (o Vite exige 22.12 e o Lighthouse, 22.19); e faltavam os avisos
+abaixo.
+
+**Falhas e comportamentos observados:**
+- *Do meu local de teste, e não do projeto:* clonar numa pasta de 188 caracteres falhou com `Filename too long`
+  (resolvido com `core.longpaths`) e, depois, **os 73 testes falharam em 6 a 9 ms** (`browserType.launch: Failed to
+  launch: Error: spawn ...`) porque o Chromium instalado numa pasta funda passou de 260 caracteres. Refeito numa
+  pasta curta. Isso só acontece se a pasta de navegadores for mudada para um lugar fundo; o padrão do Playwright é curto.
+- *Aviso do `npm install`:* o npm 11 avisa que o `postinstall` do `msw` não está coberto por `allowScripts`. O app, o
+  build e os testes funcionam. No Windows, o `public/mockServiceWorker.js` aparece como modificado no `git status`
+  depois do `npm install` (o diff ignorando fim de linha é vazio: só mudam os fins de linha, por causa do
+  `autocrlf`).
+- *Partida a frio dos testes:* na 1ª execução válida, os 2 primeiros testes (um por processo) estouraram 30 s no primeiro
+  `page.goto` e passaram na retentativa (1,4 s). Na 2ª execução não aconteceu. Tentei reproduzir fora do Playwright
+  Test: 6 ciclos de "build novo, servidor novo, 2 navegadores novos abrindo a primeira página ao mesmo tempo" deram 0
+  travadas em 12 cargas (todas em 120 a 250 ms). **Não reproduzi e a causa não foi identificada**; é da mesma família da
+  instabilidade rara descrita na seção de testes. O `retries: 1` mantém o resultado final verde.
+
 ## Deploy (Vercel)
 
 - URL: https://nft-marketplace-green-ten.vercel.app. O projeto está ligado ao repositório do

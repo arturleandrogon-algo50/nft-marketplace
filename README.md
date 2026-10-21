@@ -14,15 +14,45 @@ apenas as suas.
 
 ## Setup
 
-Requer Node 22 ou superior.
+Requer **Node 22.12 ou superior** (é o que o Vite exige). Só o `npm run lighthouse` pede mais: Node 22.19 ou
+superior e o Google Chrome instalado.
+
+Do zero, na ordem (conferido num clone limpo do repositório, no Windows):
 
 ```bash
-npm install
-cp .env.example .env   # já vem com VITE_USE_MOCKS=true
-npm run dev
+npm install                      # dependências (cerca de 1 minuto)
+npx playwright install chromium  # navegador dos testes E2E, só na primeira vez
+npm run build                    # confere os tipos e gera o build
+npm run test:e2e                 # testes E2E, com os de regressão visual (cerca de 5 minutos)
+npm run dev                      # app em http://localhost:5173
 ```
 
 Abra http://localhost:5173. A API é simulada pelo MSW na camada de rede, então não há backend.
+
+O arquivo `.env` **já vem no repositório** com `VITE_USE_MOCKS=true`: não é preciso criar nada. Se você o
+apagar, recrie-o a partir do `.env.example` (`cp .env.example .env`; no `cmd` do Windows,
+`copy .env.example .env`). Sem `VITE_USE_MOCKS=true` o app tenta usar uma API real, que não existe aqui.
+
+### Se algo não funcionar
+
+- **Porta 4173 ocupada:** o `npm run test:e2e` gera o build e sobe o servidor nela a cada execução, e precisa
+  dela livre (feche um `npm run preview` aberto).
+- **"Flaky" nos primeiros testes:** na primeira execução num clone novo, os 2 primeiros testes (de login) podem
+  aparecer como "flaky": a primeira abertura de página espera 30 s e passa na 2ª tentativa. O resultado final
+  continua verde e a execução leva cerca de 1 minuto a mais. Aconteceu em 1 de 2 execuções novas e não consegui
+  reproduzir em um teste isolado; veja o [ARCHITECTURE.md](./ARCHITECTURE.md) (seção de estabilidade).
+- **Windows, caminho da pasta muito longo:** o Windows limita os caminhos a 260 caracteres. Se o projeto estiver
+  em uma pasta muito funda, o `git clone` pode falhar com `Filename too long` (use uma pasta curta, como
+  `C:\dev\nft`, ou `git config --global core.longpaths true`). Se você mudar a pasta dos navegadores do Playwright
+  (`PLAYWRIGHT_BROWSERS_PATH`) para um lugar muito fundo, o Chromium não abre (`browserType.launch: Failed to
+  launch: Error: spawn ...`) e **todos** os testes falham em milissegundos.
+- **Avisos do `npm install`:** o npm 11 avisa que o `postinstall` do `msw` "não está coberto por allowScripts".
+  É só um aviso: o app, o build e os testes funcionam. No Windows, o `public/mockServiceWorker.js` pode aparecer
+  como modificado no `git status` depois do `npm install` (só o fim de linha muda); ignore ou desfaça com
+  `git checkout -- public/mockServiceWorker.js`.
+- **Linux ou macOS:** só testei no Windows. As imagens da regressão visual são do Windows, e nessas plataformas
+  os testes visuais se pulam sozinhos (veja a seção de regressão visual). Se faltarem bibliotecas do sistema para o
+  Chromium, o Playwright oferece `npx playwright install --with-deps chromium` (não testado aqui).
 
 ## Variáveis de ambiente
 

@@ -66,6 +66,7 @@ passariam contra código que não é o atual. Cada teste começa com o navegador
 | --------------------- | ----------- |
 | `e2e/catalog.spec.ts` | Listagem; busca na URL e refresh; filtro volta à página 1; filtros vindos da URL e botão voltar; busca sem resultado; cenário `empty`; cenário `server-error` com "Tentar novamente" |
 | `e2e/nft-detail.spec.ts` | Acesso direto e refresh; abrir pelo card e voltar; NFT inexistente (404); edição esgotada; limite de quantidade e total exato em ETH; erro do servidor com "Tentar novamente" |
+| `e2e/realtime.spec.ts` | `nft.updated` muda catálogo e detalhe sem recarregar; compra numa aba muda as edições na outra; eventos duplicados e antigos são ignorados; `order.updated` muda o recibo ao vivo e não chega a outro usuário; depois de uma reconexão, o REST reconcilia o que foi perdido |
 | `e2e/checkout.spec.ts` | Compra aprovada de ponta a ponta (recibo, carrinho vazio, edições baixadas); recusa (carrinho e edições intactos); timeout seguido de nova tentativa com a mesma chave, sem duplicar; clique duplo gera um pedido só; mesma chave devolve o mesmo pedido e conteúdo diferente dá 409; dois pedidos simultâneos com a mesma chave criam um só; recibo não muda quando o catálogo muda; pedidos separados entre usuários (404 para o pedido de outro); edições que acabam antes do pagamento; visitante vai ao login e volta ao checkout |
 | `e2e/cart.spec.ts` | Adicionar do detalhe com a quantidade escolhida; itens iguais se somam; alterar e remover; limite de edições e NFT esgotado; cupom válido, expirado e inválido (valores exatos em ETH); carrinho e cupom depois do refresh; carrinho de visitante (persiste, sem cupom); mesclagem ao fazer login; dois usuários com carrinhos separados, sem recarregar a página; erro do servidor com "Tentar novamente" |
 | `e2e/favorites.spec.ts` | Favoritar e desfavoritar; sobrevive ao refresh; catálogo e detalhe mostram o mesmo estado; visitante vai ao login e volta à mesma página; dois usuários trocando de conta sem recarregar a página não veem os favoritos um do outro; rollback com o cenário `favorites-error` |
@@ -126,6 +127,33 @@ um por usuário. Cupom só vale para quem está logado.
 
 Subtotal, desconto e total vêm do servidor simulado como string decimal em ETH, calculados com
 `BigInt` (nunca `number`).
+
+## Tempo real (Socket.IO)
+
+O app mantém uma conexão Socket.IO (`socket.io-client`, só WebSocket, em `/realtime/`), interceptada pelo MSW
+com `@mswjs/socket.io-binding`. O servidor simulado emite dois eventos, ambos com `{ id, resource, resourceId,
+version, data }`: `nft.updated` (todos recebem) e `order.updated` (só o dono do pedido). O app ignora evento
+duplicado (mesmo `id`) e antigo (versão não maior que a que já tem) e, ao reconectar, busca no REST o que pode
+ter mudado. O rodapé mostra "Tempo real: conectado" e a contagem de eventos fica em `data-received`,
+`data-applied` e `data-ignored`. Detalhes e o contrato completo estão no [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+Para ver funcionando, abra duas abas do app (mesmo navegador): numa, o detalhe de um NFT; na outra, compre-o.
+As edições mudam na primeira aba sem recarregar. Um pedido pago passa de "Pago" para "Entregue" sozinho depois
+de 8 segundos, e o recibo aberto muda ao vivo.
+
+Controles do servidor simulado, para testar ou demonstrar (rodam no console do navegador, passam pelo MSW e
+emitem pelo socket como qualquer evento):
+
+```js
+const post = (path, body = {}) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
+post('/api/mock/nfts/nft-048', { name: 'Outro nome', priceEth: '7.777' })   // nft.updated para todos
+post('/api/mock/nfts/nft-048/replay', { mode: 'duplicate' })                 // reenvia um evento: o app ignora
+post('/api/mock/nfts/nft-048/replay', { mode: 'stale' })                     // evento antigo: o app ignora
+post('/api/mock/orders/ord-0001/fulfill')                                    // entrega o pedido (order.updated)
+post('/api/mock/realtime/disconnect')                                        // derruba o socket; o app reconecta
+post('/api/mock/nfts/nft-048', { priceEth: '3.333', silent: true })          // muda sem avisar (evento perdido)
+```
 
 ## Checkout, pedidos e recibo
 

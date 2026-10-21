@@ -20,8 +20,8 @@ em vez de muita coisa pela metade.
 | Pagamento, pedidos idempotentes e recibo      | Feito (`/checkout`, `/pedidos`, `/pedidos/:id`; cenários de recusa e timeout), com testes E2E |
 | Cadastro, login, sessão, logout               | Feito, com testes E2E |
 | Perfil e carteiras                            | Parcial: `/perfil` protegido mostra nome e e-mail; edição e carteiras pendentes |
-| Socket.IO via MSW (`nft.updated`, `order.updated`) | Pendente |
-| Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho e checkout (50 testes); tempo real pendente |
+| Socket.IO via MSW (`nft.updated`, `order.updated`) | Feito (`socket.io-client` + `@mswjs/socket.io-binding`; versão, duplicados, reconexão), com testes E2E |
+| Testes E2E (Playwright)                       | Feito para catálogo, autenticação, detalhe do NFT, favoritos, carrinho, checkout e tempo real (55 testes) |
 | Regressão visual (Playwright)                 | Pendente     |
 | Auditoria Lighthouse                          | Pendente     |
 | Fidelidade ao Figma                           | Parcial: visual base (cores, fonte, cabeçalho, card); veja as limitações |
@@ -38,6 +38,7 @@ src/
     cart/       carrinho, cupom, ícone do cabeçalho e carrinho do visitante
     favorites/  botão de coração, chamadas à API e a mutação otimista
     orders/     checkout, chave de idempotência, recibo e lista de pedidos
+    realtime/   conexão Socket.IO, contrato dos eventos e aplicação deles no cache
     nfts/       tipos, chamadas à API, queries e telas do catálogo e do detalhe
   lib/          cliente Axios, token da sessão, QueryClient, utilitários (ETH)
   mocks/        MSW: handlers, fixtures e cenários
@@ -151,6 +152,86 @@ direto para o cache (`setQueryData`). Botões nos limites usam `aria-disabled`, 
 não tirar o foco do teclado; enquanto o app descobre quem é o usuário, "Adicionar ao carrinho" fica
 esmaecido (senão o item de quem está logado iria para o carrinho de visitante).
 
+## Tempo real (Socket.IO via MSW)
+
+**Transporte.** O app usa o `socket.io-client` de verdade, só por WebSocket (sem o "long polling" que o
+Socket.IO tentaria primeiro), em `ws(s)://<origem>/realtime/`. O MSW intercepta essa conexão com `ws.link`
+(`mocks/realtime.ts`), e o `@mswjs/socket.io-binding` (`toSocketIo`) codifica e decodifica as mensagens do
+protocolo. Nenhum evento é inventado na tela: todo evento sai do servidor simulado, passa pelo socket e só
+então chega ao cache.
+
+**Por que o caminho é `/realtime` e não o padrão `/socket.io/`.** O MSW tira o prefixo `/socket.io/` do caminho
+do cliente antes de comparar com o `ws.link`, então um handler em `.../socket.io/` nunca casa e a conexão
+passa direto para a rede (foi o que aconteceu na primeira tentativa: o navegador mostrava
+"WebSocket connection ... failed"). Para casar, o handler teria de ser a raiz da origem, e isso também
+interceptaria o WebSocket do Vite (HMR) no modo dev. Um caminho próprio evita os dois problemas.
+
+**Carregamento tardio do cliente.** O `engine.io-client` guarda o `WebSocket` que existe NA HORA em que é
+importado (`const WebSocketCtor = globalThis.WebSocket`), e o MSW só troca o `WebSocket` quando liga (antes de
+renderizar o app). Por isso o `socket.io-client` é carregado com `import()` dentro do hook (`useRealtime`) e não no
+topo dos arquivos. Importado cedo demais, ele usaria o WebSocket de verdade, sem mock.
+
+**O que o binding não faz, e como foi resolvido** (`mocks/realtime.ts`): ele não tem salas nem broadcast, então o
+servidor mantém um registro das conexões abertas (com o usuário de cada uma); não manda "ping", e sem ele o
+cliente se desconecta sozinho em ~30 s, então o servidor manda o ping do Engine.IO a cada 20 s; e o token vai no
+aperto de mão (opção `auth` do cliente) e chega como `40{"token":"..."}`, que o servidor lê para saber o dono da
+conexão.
+
+**Contrato dos eventos** (`features/realtime/types.ts`): `nft.updated` e `order.updated`, ambos com
+`{ id, resource, resourceId, version, data }`.
+- `id` é estável: `nft:nft-048:v3`, `order:ord-0001:v2`. O mesmo evento reenviado tem o mesmo id.
+- `version` sobe a cada alteração do recurso (a do NFT também sobe a cada venda). A do pedido sobe a cada
+  mudança de status.
+- `data` é o recurso inteiro, já no estado novo.
+
+**Quem emite, e para quem.** Pagamento aprovado: `nft.updated` de cada NFT vendido, para todas as conexões
+(logadas ou não), e `order.updated` (versão 1) só para as conexões do dono. Depois de 8 s o pedido passa de
+`paid` para `fulfilled` ("Entregue"), com novo `order.updated` só para o dono. Se a página recarregou e o timer se
+perdeu, quem lê o pedido depois do prazo já o vê entregue (a entrega acontece na leitura). O status é a única
+parte mutável do pedido; o resto é o snapshot.
+
+**Aplicação no cache** (`features/realtime/events.ts`). Duas barreiras, nesta ordem:
+1. *Duplicado:* o id já foi visto nesta conexão → ignorado.
+2. *Antigo:* a `version` do evento não é MAIOR que a do dado em cache → ignorado.
+Passando, o NFT é trocado em todas as listas e no detalhe que estiverem no cache, e o pedido é trocado no recibo
+e na lista (pedido que a lista não conhece faz a lista ser buscada de novo). Dado que não está no cache não é
+criado a partir do evento. O rodapé mostra o estado da conexão e, em `data-received`, `data-applied` e
+`data-ignored`, a contagem dos eventos da conexão atual (os testes usam isso).
+
+**Reconexão e reconciliação.** O cliente reconecta sozinho (espera de 0,5 a 2 s). Ao reconectar, o que mudou
+enquanto estava fora não chegou por evento, então o app invalida e busca de novo no REST os NFTs e os
+pedidos (`reconcileWithRest`). O REST é a fonte da verdade.
+
+**Sessão.** A conexão é refeita sempre que o usuário muda (login, cadastro, logout, outra aba): o hook fecha o
+socket, esquece os ids vistos e abre outro com o token novo. O servidor associa cada conexão ao usuário pelo
+token do aperto de mão, então `order.updated` nunca chega a quem não é o dono.
+
+**Duas abas.** Cada aba tem o seu próprio MSW, então o mock liga as abas com um `BroadcastChannel`: um evento
+publicado numa aba chega às conexões de todas, como se houvesse um servidor só. Vale para abas do mesmo
+navegador (mesma origem).
+
+**Compra com timeout.** No cenário `payment-timeout` o servidor salva o pedido logo (para a nova tentativa com a
+mesma chave achá-lo), mas atrasa a resposta E os eventos em 8 s. Se o aviso saísse na hora, o app "descobriria" a
+compra antes do timeout e a situação de resultado incerto nunca apareceria.
+
+**Controles do mock** (só existem por ser um servidor simulado; passam pelo MSW e emitem pelo socket como
+qualquer evento; não exigem login):
+
+| Rota                                   | O que faz |
+| -------------------------------------- | --------- |
+| `POST /api/mock/nfts/:id`              | Muda `name` e/ou `priceEth`, sobe a versão e emite `nft.updated`. Com `silent: true` muda sem emitir (simula um evento perdido) |
+| `POST /api/mock/nfts/:id/replay`       | `mode: "duplicate"`: reenvia o mesmo evento (mesmo id e versão) com carga diferente. `mode: "stale"`: envia um evento de versão antiga com dados velhos. O app tem que ignorar os dois |
+| `POST /api/mock/orders/:id/fulfill`    | Entrega o pedido na hora e emite `order.updated` para o dono |
+| `POST /api/mock/realtime/disconnect`   | Derruba todas as conexões do socket (em todas as abas) |
+
+**O que os testes cobrem** (`e2e/realtime.spec.ts`): `nft.updated` muda o catálogo e o detalhe sem recarregar;
+uma compra numa aba muda as edições na outra, e o contador prova que veio por evento; duplicado e antigo são
+ignorados (e um evento novo depois continua sendo aplicado); `order.updated` muda o recibo ao vivo e não chega a
+outro usuário (o Bruno, logado pelo próprio app, recebe o `nft.updated` de um pedido novo da Ana, mas não o
+`order.updated`); e, depois de uma reconexão, um preço mudado sem aviso aparece mesmo assim, pelo REST. Esse
+último teste confere que nenhum evento chegou (`data-received` = 0). Um limite do teste "só o dono recebe": a
+ausência do evento é confirmada com uma espera fixa de 0,5 s.
+
 ## Checkout, pedidos e recibo
 
 **Contratos REST** (erros no formato `{ code, message }`; todas exigem login):
@@ -198,7 +279,7 @@ sucesso otimista.
 
 **Ao aprovar** (tudo no mesmo trecho síncrono do handler): confere que o carrinho da conta ainda é o que o
 usuário viu (`cart_changed`) e que há edições (`insufficient_stock`, com o nome do NFT); monta o pedido; baixa
-as edições (`mock:stock`, e a `version` do NFT sobe a cada venda, para o Socket.IO usar depois); esvazia o
+as edições (`mock:stock`, e a `version` do NFT sobe a cada venda, o que alimenta o `nft.updated`); esvazia o
 carrinho; grava pedido e chave.
 
 **Snapshot.** O pedido guarda uma CÓPIA de nome, imagem, preço unitário, quantidade e totais no momento da
@@ -256,7 +337,8 @@ aceita caminhos internos (`/...`, nunca `//...`). Quem já está logado e abre `
 (`lib/query-client.ts`), então nada do usuário anterior fica no cache. O logout também invalida
 a sessão no servidor simulado. Logout ou login em outra aba (evento `storage`) zera o cache e
 reavalia as rotas (`router.invalidate()`), e quem estava numa página protegida vai para o login.
-Quando o Socket.IO existir, as subscriptions também serão encerradas aqui.
+O socket do tempo real também é fechado e reaberto com o token novo
+(veja "Tempo real"), então ninguém continua inscrito nos pedidos do usuário anterior.
 
 **Por que `resetCache()` e não `queryClient.clear()`.** O `clear()` remove as queries do cache,
 mas os componentes que já estão na tela (o ícone do carrinho no cabeçalho, que não re-renderiza
@@ -291,9 +373,9 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
 - Os números esperados (48 NFTs, 8 da coleção "Neon Drift") vêm das fixtures determinísticas.
 - `expect` com timeout de 10 s: o erro 5xx passa por 2 retries do TanStack Query (~3 s)
   antes de aparecer na tela.
-- **Estabilidade (medida, com 50 testes):** a última rodada dupla (`--repeat-each=2`, 100
-  execuções) teve 100 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 50 de
-  50. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
+- **Estabilidade (medida, com 55 testes):** a última rodada dupla (`--repeat-each=2`, 110
+  execuções) teve 110 passando de primeira, sem nenhum "flaky", e `npm run test:e2e` deu 55 de
+  55. Numa rodada dupla anterior (24 testes), 2 execuções passaram só na 2ª tentativa (marcadas
   como "flaky" pelo Playwright). Em rodadas isoladas ainda mais antigas apareceram travadas
   ocasionais na primeira carga da página, em testes de `auth` ou na 1ª carga do catálogo. Em um
   dos casos, o snapshot da página mostrava o formulário de login
@@ -386,4 +468,9 @@ O `localStorage` faz o papel do disco do servidor. Só o MSW (`mocks/db.ts`) lê
   poderia duplicar (o pedido anterior apareceria em `/pedidos`). O servidor não cancela nem reembolsa
   pedidos. As edições vendidas só existem no navegador (`mock:stock`): outro navegador começa com o
   estoque inicial.
-- Testes E2E cobrem só o Chromium desktop. Tempo real e regressão visual ainda não têm testes.
+- Tempo real: o servidor simulado só alcança as abas do MESMO navegador (as abas se falam por
+  `BroadcastChannel`); outro navegador ou dispositivo não recebe os eventos de uma compra. O cliente não
+  guarda histórico de eventos perdidos: depois de uma reconexão, o REST é a única fonte de reconciliação.
+  O carrinho não é atualizado por eventos (as edições disponíveis dele só se renovam quando ele é buscado
+  de novo). Os controles do mock (`/api/mock/...`) existem só por ser um servidor simulado.
+- Testes E2E cobrem só o Chromium desktop. Regressão visual ainda não tem testes.

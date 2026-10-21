@@ -181,6 +181,18 @@ export function getNftOverrides() {
   return read<Record<string, NftOverride>>(OVERRIDES_KEY, {})
 }
 
+// Alteração manual de um NFT (controles do mock): grava nome/preço e sobe a versão dele,
+// como o servidor faria a cada mudança.
+export function updateNft(nftId: string, patch: NftOverride) {
+  const overrides = getNftOverrides()
+  write(OVERRIDES_KEY, { ...overrides, [nftId]: { ...overrides[nftId], ...patch } })
+
+  const stock = getStock()
+  const current = stock[nftId] ?? { sold: 0, bumps: 0 }
+  stock[nftId] = { ...current, bumps: current.bumps + 1 }
+  write(STOCK_KEY, stock)
+}
+
 // --- Pedidos ----------------------------------------------------------------
 
 // Pedidos por usuário: um usuário só enxerga a própria lista.
@@ -196,6 +208,23 @@ export function saveOrder(userId: string, order: Order) {
   const all = read<Record<string, Order[]>>(ORDERS_KEY, {})
   all[userId] = [...(all[userId] ?? []), order]
   write(ORDERS_KEY, all)
+}
+
+// Troca o pedido salvo pela versão nova (usado quando o status muda).
+export function updateOrder(userId: string, order: Order) {
+  const all = read<Record<string, Order[]>>(ORDERS_KEY, {})
+  all[userId] = (all[userId] ?? []).map((saved) => (saved.id === order.id ? order : saved))
+  write(ORDERS_KEY, all)
+}
+
+// De quem é este pedido? Só os controles do mock precisam disso (eles não têm login).
+export function findOrderOwner(orderId: string) {
+  const all = read<Record<string, Order[]>>(ORDERS_KEY, {})
+  for (const [userId, orders] of Object.entries(all)) {
+    const order = orders.find((candidate) => candidate.id === orderId)
+    if (order) return { userId, order }
+  }
+  return undefined
 }
 
 // Ids sequenciais e previsíveis ("ord-0001"), sem Math.random.

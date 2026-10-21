@@ -17,7 +17,9 @@ import {
   saveOrder,
   type StoredCart,
 } from './db'
+import { FULFILL_DELAY_MS, fulfillOrder, settleOrder } from './fulfillment'
 import { buildQuote } from './quote'
+import { publishNftUpdated, publishOrderUpdated } from './realtime'
 import { getScenario } from './scenario'
 
 const UNAUTHORIZED = ['unauthorized', 'Entre na sua conta para ver e fazer pedidos.'] as const
@@ -144,6 +146,7 @@ export const ordersHandlers = [
     const order: Order = {
       id: nextOrderId(),
       status: 'paid',
+      version: 1,
       createdAt: new Date().toISOString(),
       items: quote.items.map((line) => ({
         nftId: line.nftId,
@@ -165,8 +168,29 @@ export const ordersHandlers = [
     saveOrder(user.id, order)
     saveIdempotency(user.id, key, { fingerprint, orderId: order.id })
 
-    // O pedido já está pago e salvo; só a RESPOSTA demora. O app dá timeout e não sabe disso.
-    if (scenario === 'payment-timeout') await delay(TIMEOUT_DELAY_MS)
+    // Avisa em tempo real: as edições dos NFTs mudaram (para todos) e o pedido nasceu (só para o dono).
+    // Depois de FULFILL_DELAY_MS o pedido é entregue, o que gera outro order.updated.
+    const publish = () => {
+      for (const line of order.items) {
+        const nft = findNft(line.nftId)
+        if (nft) publishNftUpdated(nft)
+      }
+      publishOrderUpdated(user.id, order)
+      setTimeout(() => {
+        const current = findOrder(user.id, order.id)
+        if (current) fulfillOrder(user.id, current)
+      }, FULFILL_DELAY_MS)
+    }
+
+    if (scenario === 'payment-timeout') {
+      // O pedido já está pago e salvo (por isso a nova tentativa com a mesma chave o encontra),
+      // mas o servidor demora, tanto para RESPONDER quanto para avisar pelo socket. O app dá
+      // timeout e não sabe de nada. Se o aviso saísse já, o app "descobriria" a compra antes da hora.
+      await delay(TIMEOUT_DELAY_MS)
+      publish()
+    } else {
+      publish()
+    }
 
     return HttpResponse.json<Order>(order, { status: 201 })
   }),
@@ -179,7 +203,8 @@ export const ordersHandlers = [
     if (failure) return failure
 
     // Mais recentes primeiro.
-    return HttpResponse.json({ orders: [...getOrders(user.id)].reverse() })
+    const orders = getOrders(user.id).map((order) => settleOrder(user.id, order))
+    return HttpResponse.json({ orders: orders.reverse() })
   }),
 
   http.get<{ id: string }, never, Order | ApiError>('/api/orders/:id', async ({ request, params }) => {
@@ -193,6 +218,6 @@ export const ordersHandlers = [
     // nem a existência dele é revelada.
     const order = findOrder(user.id, params.id)
     if (!order) return apiError(404, 'order_not_found', 'Pedido não encontrado.')
-    return HttpResponse.json(order)
+    return HttpResponse.json(settleOrder(user.id, order))
   }),
 ]

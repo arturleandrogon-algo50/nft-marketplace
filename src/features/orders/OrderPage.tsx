@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_SEARCH } from '@/features/nfts/search'
 import { getErrorMessage } from '@/lib/api'
 import { orderOptions } from './queries'
+import { ORDER_STATUS_LABEL } from './status'
 
 // O id da rota leva o prefixo da rota de layout "authenticated" (a que exige login).
 const route = getRouteApi('/authenticated/pedidos/$id')
@@ -65,7 +66,7 @@ export function OrderPage() {
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold">Pedido {order.id}</h1>
       <p className="mt-2 text-sm text-white/70">
-        Status: <span className="font-bold text-brand">Pago</span> ·{' '}
+        Status: <span className="font-bold text-brand">{ORDER_STATUS_LABEL[order.status]}</span> ·{' '}
         {new Date(order.createdAt).toLocaleString('pt-BR')}
       </p>
 

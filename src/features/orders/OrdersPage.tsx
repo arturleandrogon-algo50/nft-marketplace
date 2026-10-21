@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_SEARCH } from '@/features/nfts/search'
 import { getErrorMessage } from '@/lib/api'
 import { ordersOptions } from './queries'
+import { ORDER_STATUS_LABEL } from './status'
 
 export function OrdersPage() {
   const { data: user } = useQuery(meOptions())
@@ -74,7 +75,7 @@ export function OrdersPage() {
                 </Link>
                 <p className="mt-1 text-sm text-white/70">
                   {new Date(order.createdAt).toLocaleString('pt-BR')} · {order.itemCount}{' '}
-                  {order.itemCount === 1 ? 'item' : 'itens'} · Pago
+                  {order.itemCount === 1 ? 'item' : 'itens'} · {ORDER_STATUS_LABEL[order.status]}
                 </p>
               </div>
               <p className="font-bold text-brand">{order.totalEth} ETH</p>

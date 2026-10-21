@@ -11,12 +11,15 @@ export interface OrderLine {
   lineTotalEth: string
 }
 
-// Por enquanto só existe "paid": pedido recusado não chega a ser criado.
-export type OrderStatus = 'paid'
+// "paid": pagamento aprovado. "fulfilled": NFT entregue. Pedido recusado não chega a ser criado.
+// O status é a única parte do pedido que muda depois da compra: o resto é o snapshot.
+export type OrderStatus = 'paid' | 'fulfilled'
 
 export interface Order {
   id: string
   status: OrderStatus
+  /** Sobe a cada mudança de status (1 = recém-criado). Serve para ignorar eventos antigos. */
+  version: number
   createdAt: string
   items: OrderLine[]
   itemCount: number

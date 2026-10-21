@@ -3,10 +3,12 @@ import type { ApiError } from '@/lib/api'
 import { compareEth } from '@/lib/eth'
 import { SORT_OPTIONS } from '@/features/nfts/search'
 import type { Nft, NftSortKey, Paginated } from '@/features/nfts/types'
+import { adminHandlers } from './admin-handlers'
 import { authHandlers } from './auth-handlers'
 import { cartHandlers } from './cart-handlers'
 import { favoritesHandlers } from './favorites-handlers'
 import { ordersHandlers } from './orders-handlers'
+import { realtimeHandlers } from './realtime'
 import { findNft, getNfts } from './catalog'
 import { getScenario } from './scenario'
 
@@ -39,6 +41,8 @@ export const handlers = [
   ...favoritesHandlers,
   ...cartHandlers,
   ...ordersHandlers,
+  ...realtimeHandlers,
+  ...adminHandlers,
 
   http.get<never, never, NftsResponse>('/api/nfts', async ({ request }) => {
     const scenario = getScenario()

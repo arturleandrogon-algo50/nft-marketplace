@@ -3,9 +3,17 @@ import { useSessionSync } from '@/features/auth/queries'
 import { UserMenu } from '@/features/auth/UserMenu'
 import { CartLink } from '@/features/cart/CartLink'
 import { DEFAULT_SEARCH } from '@/features/nfts/search'
+import { useRealtime, type RealtimeStatus } from '@/features/realtime/useRealtime'
+
+const REALTIME_LABEL: Record<RealtimeStatus, string> = {
+  connecting: 'conectando…',
+  connected: 'conectado',
+  reconnecting: 'reconectando…',
+}
 
 export function RootLayout() {
   useSessionSync()
+  const realtime = useRealtime()
 
   return (
     <div className="min-h-screen">
@@ -64,6 +72,18 @@ export function RootLayout() {
       <main id="conteudo" className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <Outlet />
       </main>
+
+      <footer className="mx-auto max-w-7xl px-4 pb-6 sm:px-6">
+        {/* Estado da conexão Socket.IO. Os data-* contam os eventos desta conexão (usados nos testes). */}
+        <p
+          className="text-xs text-white/60"
+          data-received={realtime.received}
+          data-applied={realtime.applied}
+          data-ignored={realtime.ignored}
+        >
+          Tempo real: {REALTIME_LABEL[realtime.status]}
+        </p>
+      </footer>
     </div>
   )
 }

@@ -34,7 +34,8 @@ export function NftCard({ nft }: { nft: Nft }) {
             {nft.name}
           </Link>
         </h3>
-        <div className="flex items-center justify-between gap-2 pt-2 text-sm">
+        {/* flex-wrap: em tela estreita a disponibilidade desce para baixo do preço, em vez de ser cortada. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-2 text-sm">
           <span className="whitespace-nowrap font-bold text-brand">{nft.priceEth} ETH</span>
           {/* O estado "esgotado" aparece em texto, não só por cor. */}
           <span className="text-white/60">

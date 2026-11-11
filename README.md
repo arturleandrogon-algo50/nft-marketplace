@@ -1,11 +1,32 @@
 # NFT Marketplace
 
-Solução do desafio frontend "Marketplace de NFTs" (React + TypeScript).
+Marketplace de NFTs feito em **React + TypeScript** como solução de um desafio frontend. Funciona de ponta a ponta sem backend: a API é simulada na camada de rede com MSW.
+
+**Demo online:** https://nft-marketplace-green-ten.vercel.app
+(Para entrar: `ana@nftmarket.test` / `Senha123`)
+
+## O que tem
+
+- Catálogo com busca e filtros guardados na URL, e página de detalhe do NFT
+- Carrinho com cupom, checkout e recibo
+- Favoritos e login, com rotas protegidas
+- Tempo real por Socket.IO: as edições mudam em todas as abas sem recarregar
+- Checkout idempotente: o clique duplo e a nova tentativa depois de um timeout não duplicam o pedido
+
+## Qualidade
+
+- **Testes E2E com Playwright:** 7 arquivos cobrindo catálogo, carrinho, checkout, favoritos, login e tempo real
+- **Regressão visual:** 18 imagens de referência, em 390, 768 e 1440 px
+- **Lighthouse no site publicado:** performance de 92 a 100 e 100 em acessibilidade, boas práticas e SEO
+
+## Tecnologias
+
+React 19, TypeScript, Vite, TanStack Router e Query, Tailwind CSS, Socket.IO, MSW, Playwright, Lighthouse, oxlint, Vercel
+
+---
 
 > **Entrega parcial.** O que está pronto e o que falta está na tabela de status do
 > [ARCHITECTURE.md](./ARCHITECTURE.md), junto com as decisões técnicas.
-
-**Demonstração online:** https://nft-marketplace-green-ten.vercel.app
 
 Roda no Vercel com a API simulada (MSW) ligada, sem backend. Cada push na `main` publica uma
 nova versão. Veja [credenciais fictícias](#credenciais-fictícias) para entrar. As contas criadas
